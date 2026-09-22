@@ -21,10 +21,14 @@ final class AdminBootstrapper
         $insert = $this->pdo->prepare(
             'INSERT INTO app_users (username, password_hash, role, is_active) VALUES (:u, :p, :r, 1)'
         );
-        $insert->execute([
-            'u' => $username,
-            'p' => password_hash($password, PASSWORD_DEFAULT),
-            'r' => Roles::ADMIN,
-        ]);
+        try {
+            $insert->execute([
+                'u' => $username,
+                'p' => password_hash($password, PASSWORD_DEFAULT),
+                'r' => Roles::ADMIN,
+            ]);
+        } catch (\PDOException $e) {
+            throw new \RuntimeException("User '{$username}' already exists.");
+        }
     }
 }
