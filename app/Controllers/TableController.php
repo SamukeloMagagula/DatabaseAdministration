@@ -165,6 +165,10 @@ final class TableController
         }
         $this->assertValidTable($db, $table);
         $pkColumn = $this->primaryKeyColumn($db, $table);
+        if ($pkColumn === null) {
+            http_response_code(400);
+            return 'Table has no primary key; editing is not supported.';
+        }
 
         $user = Auth::currentUser();
         $this->updateRowData($db, $table, $pkColumn, $pk, $_POST['fields'] ?? [], $user['id'], $user['username']);
@@ -183,6 +187,10 @@ final class TableController
         }
         $this->assertValidTable($db, $table);
         $pkColumn = $this->primaryKeyColumn($db, $table);
+        if ($pkColumn === null) {
+            http_response_code(400);
+            return 'Table has no primary key; editing is not supported.';
+        }
 
         $user = Auth::currentUser();
         $this->deleteRowData($db, $table, $pkColumn, $pk, $user['id'], $user['username']);
@@ -246,6 +254,10 @@ final class TableController
     public function findRow(string $db, string $table, string $pkColumn, $pkValue): ?array
     {
         $this->assertValidTable($db, $table);
+        $validColumns = array_column($this->columns($db, $table), 'COLUMN_NAME');
+        if (!in_array($pkColumn, $validColumns, true)) {
+            throw new InvalidArgumentException('Invalid primary key column');
+        }
         $sql = sprintf('SELECT * FROM `%s`.`%s` WHERE `%s` = :pk', $db, $table, $pkColumn);
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['pk' => $pkValue]);
