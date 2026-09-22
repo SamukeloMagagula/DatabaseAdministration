@@ -61,9 +61,19 @@ final class TableController
 
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $pageSize = (int) ($_GET['page_size'] ?? 50);
+
         $sortColumn = $_GET['sort'] ?? null;
+        $sortColumn = is_string($sortColumn) ? $sortColumn : null;
+
         $sortDir = $_GET['dir'] ?? 'ASC';
-        $filters = array_intersect_key($_GET['filter'] ?? [], array_flip($validColumns));
+        $sortDir = is_string($sortDir) ? $sortDir : 'ASC';
+
+        $rawFilters = $_GET['filter'] ?? [];
+        $rawFilters = is_array($rawFilters) ? $rawFilters : [];
+        $filters = array_filter(
+            array_intersect_key($rawFilters, array_flip($validColumns)),
+            fn($v) => is_string($v)
+        );
 
         $result = $this->listRows($db, $table, $page, $pageSize, $sortColumn, $sortDir, $filters);
 
