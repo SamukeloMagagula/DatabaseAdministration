@@ -29,6 +29,11 @@ $router->add('GET', '/', fn($p) => $dashboard->index());
 $router->add('GET', '/db/{db}/tables', fn($p) => $tables->listForDatabase($p['db']));
 $router->add('GET', '/db/{db}/table/{table}/structure', fn($p) => $tables->structure($p['db'], $p['table']));
 $router->add('GET', '/db/{db}/table/{table}', fn($p) => $tables->data($p['db'], $p['table']));
+$router->add('GET', '/db/{db}/table/{table}/new', fn($p) => $tables->newRowForm($p['db'], $p['table']));
+$router->add('POST', '/db/{db}/table/{table}/rows', fn($p) => $tables->createRow($p['db'], $p['table']));
+$router->add('GET', '/db/{db}/table/{table}/row/{pk}/edit', fn($p) => $tables->editRowForm($p['db'], $p['table'], $p['pk']));
+$router->add('POST', '/db/{db}/table/{table}/row/{pk}', fn($p) => $tables->updateRow($p['db'], $p['table'], $p['pk']));
+$router->add('POST', '/db/{db}/table/{table}/row/{pk}/delete', fn($p) => $tables->deleteRow($p['db'], $p['table'], $p['pk']));
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $match = $router->match($_SERVER['REQUEST_METHOD'], $path);

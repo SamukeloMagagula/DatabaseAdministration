@@ -4,7 +4,10 @@ namespace App\Controllers;
 
 use App\Auth;
 use App\AuditLog;
+use App\Csrf;
 use App\Database;
+use App\Http;
+use App\Roles;
 use App\View;
 use InvalidArgumentException;
 use PDO;
@@ -91,6 +94,102 @@ final class TableController
         ]);
     }
 
+    public function newRowForm(string $db, string $table): string
+    {
+        if (($guard = Auth::requireRole(Roles::EDITOR, Roles::ADMIN)) !== null) {
+            return $guard;
+        }
+        $this->assertValidTable($db, $table);
+
+        return View::render('row_form', [
+            'user' => Auth::currentUser(),
+            'db' => $db,
+            'table' => $table,
+            'columns' => $this->columns($db, $table),
+            'row' => null,
+            'primaryKey' => $this->primaryKeyColumn($db, $table),
+            'pkValue' => null,
+            'csrfToken' => Csrf::token(),
+        ]);
+    }
+
+    public function createRow(string $db, string $table): string
+    {
+        if (($guard = Auth::requireRole(Roles::EDITOR, Roles::ADMIN)) !== null) {
+            return $guard;
+        }
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(400);
+            return 'Invalid form submission.';
+        }
+        $this->assertValidTable($db, $table);
+
+        $user = Auth::currentUser();
+        $this->insertRow($db, $table, $_POST['fields'] ?? [], $user['id'], $user['username']);
+
+        return Http::redirect("/db/{$db}/table/{$table}");
+    }
+
+    public function editRowForm(string $db, string $table, string $pk): string
+    {
+        if (($guard = Auth::requireRole(Roles::EDITOR, Roles::ADMIN)) !== null) {
+            return $guard;
+        }
+        $this->assertValidTable($db, $table);
+        $pkColumn = $this->primaryKeyColumn($db, $table);
+        if ($pkColumn === null) {
+            http_response_code(400);
+            return 'Table has no primary key; editing is not supported.';
+        }
+
+        return View::render('row_form', [
+            'user' => Auth::currentUser(),
+            'db' => $db,
+            'table' => $table,
+            'columns' => $this->columns($db, $table),
+            'row' => $this->findRow($db, $table, $pkColumn, $pk),
+            'primaryKey' => $pkColumn,
+            'pkValue' => $pk,
+            'csrfToken' => Csrf::token(),
+        ]);
+    }
+
+    public function updateRow(string $db, string $table, string $pk): string
+    {
+        if (($guard = Auth::requireRole(Roles::EDITOR, Roles::ADMIN)) !== null) {
+            return $guard;
+        }
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(400);
+            return 'Invalid form submission.';
+        }
+        $this->assertValidTable($db, $table);
+        $pkColumn = $this->primaryKeyColumn($db, $table);
+
+        $user = Auth::currentUser();
+        $this->updateRowData($db, $table, $pkColumn, $pk, $_POST['fields'] ?? [], $user['id'], $user['username']);
+
+        return Http::redirect("/db/{$db}/table/{$table}");
+    }
+
+    public function deleteRow(string $db, string $table, string $pk): string
+    {
+        if (($guard = Auth::requireRole(Roles::EDITOR, Roles::ADMIN)) !== null) {
+            return $guard;
+        }
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(400);
+            return 'Invalid form submission.';
+        }
+        $this->assertValidTable($db, $table);
+        $pkColumn = $this->primaryKeyColumn($db, $table);
+
+        $user = Auth::currentUser();
+        $this->deleteRowData($db, $table, $pkColumn, $pk, $user['id'], $user['username']);
+
+        return Http::redirect("/db/{$db}/table/{$table}");
+    }
+
     public function listRows(
         string $db,
         string $table,
@@ -142,6 +241,82 @@ final class TableController
         $total = (int) $countStmt->fetchColumn();
 
         return ['rows' => $rows, 'total' => $total, 'page' => $page, 'pageSize' => $pageSize];
+    }
+
+    public function findRow(string $db, string $table, string $pkColumn, $pkValue): ?array
+    {
+        $this->assertValidTable($db, $table);
+        $sql = sprintf('SELECT * FROM `%s`.`%s` WHERE `%s` = :pk', $db, $table, $pkColumn);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['pk' => $pkValue]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function insertRow(string $db, string $table, array $data, int $userId, string $username): void
+    {
+        $this->assertValidTable($db, $table);
+        $validColumns = array_column($this->columns($db, $table), 'COLUMN_NAME');
+        $data = array_intersect_key($data, array_flip($validColumns));
+        if (!$data) {
+            throw new InvalidArgumentException('No valid columns supplied');
+        }
+
+        $columns = array_keys($data);
+        $sql = sprintf(
+            'INSERT INTO `%s`.`%s` (%s) VALUES (%s)',
+            $db,
+            $table,
+            implode(', ', array_map(fn($c) => "`$c`", $columns)),
+            implode(', ', array_map(fn($c) => ":$c", $columns))
+        );
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($data);
+
+        $this->auditLog->record($userId, $username, 'ROW_INSERT', $db, $table, json_encode($data));
+    }
+
+    public function updateRowData(
+        string $db,
+        string $table,
+        string $pkColumn,
+        $pkValue,
+        array $data,
+        int $userId,
+        string $username
+    ): void {
+        $this->assertValidTable($db, $table);
+        $validColumns = array_column($this->columns($db, $table), 'COLUMN_NAME');
+        $data = array_intersect_key($data, array_flip($validColumns));
+        unset($data[$pkColumn]);
+        if (!$data) {
+            throw new InvalidArgumentException('No valid columns supplied');
+        }
+        if (!in_array($pkColumn, $validColumns, true)) {
+            throw new InvalidArgumentException('Invalid primary key column');
+        }
+
+        $setSql = implode(', ', array_map(fn($c) => "`$c` = :$c", array_keys($data)));
+        $sql = sprintf('UPDATE `%s`.`%s` SET %s WHERE `%s` = :pk_value', $db, $table, $setSql, $pkColumn);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([...$data, 'pk_value' => $pkValue]);
+
+        $this->auditLog->record($userId, $username, 'ROW_UPDATE', $db, $table, json_encode(['pk' => $pkValue, 'set' => $data]));
+    }
+
+    public function deleteRowData(string $db, string $table, string $pkColumn, $pkValue, int $userId, string $username): void
+    {
+        $this->assertValidTable($db, $table);
+        $validColumns = array_column($this->columns($db, $table), 'COLUMN_NAME');
+        if (!in_array($pkColumn, $validColumns, true)) {
+            throw new InvalidArgumentException('Invalid primary key column');
+        }
+
+        $sql = sprintf('DELETE FROM `%s`.`%s` WHERE `%s` = :pk_value', $db, $table, $pkColumn);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['pk_value' => $pkValue]);
+
+        $this->auditLog->record($userId, $username, 'ROW_DELETE', $db, $table, json_encode(['pk' => $pkValue]));
     }
 
     public function listTables(string $db): array
