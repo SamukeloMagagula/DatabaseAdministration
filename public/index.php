@@ -28,6 +28,7 @@ $router->add('POST', '/logout', fn($p) => $auth->handleLogout());
 $router->add('GET', '/', fn($p) => $dashboard->index());
 $router->add('GET', '/db/{db}/tables', fn($p) => $tables->listForDatabase($p['db']));
 $router->add('GET', '/db/{db}/table/{table}/structure', fn($p) => $tables->structure($p['db'], $p['table']));
+$router->add('GET', '/db/{db}/table/{table}', fn($p) => $tables->data($p['db'], $p['table']));
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $match = $router->match($_SERVER['REQUEST_METHOD'], $path);

@@ -49,6 +49,91 @@ final class TableController
         ]);
     }
 
+    public function data(string $db, string $table): string
+    {
+        if (($guard = Auth::requireLogin()) !== null) {
+            return $guard;
+        }
+        $this->assertValidTable($db, $table);
+
+        $columns = $this->columns($db, $table);
+        $validColumns = array_column($columns, 'COLUMN_NAME');
+
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $pageSize = (int) ($_GET['page_size'] ?? 50);
+        $sortColumn = $_GET['sort'] ?? null;
+        $sortDir = $_GET['dir'] ?? 'ASC';
+        $filters = array_intersect_key($_GET['filter'] ?? [], array_flip($validColumns));
+
+        $result = $this->listRows($db, $table, $page, $pageSize, $sortColumn, $sortDir, $filters);
+
+        return View::render('table_data', [
+            'user' => Auth::currentUser(),
+            'db' => $db,
+            'table' => $table,
+            'columns' => $columns,
+            'primaryKey' => $this->primaryKeyColumn($db, $table),
+            'result' => $result,
+            'sortColumn' => $sortColumn,
+            'sortDir' => $sortDir,
+            'filters' => $filters,
+            'csrfToken' => \App\Csrf::token(),
+        ]);
+    }
+
+    public function listRows(
+        string $db,
+        string $table,
+        int $page,
+        int $pageSize,
+        ?string $sortColumn,
+        string $sortDir,
+        array $filters
+    ): array {
+        $this->assertValidTable($db, $table);
+        $validColumns = array_column($this->columns($db, $table), 'COLUMN_NAME');
+
+        $where = [];
+        $params = [];
+        foreach ($filters as $col => $value) {
+            if (!in_array($col, $validColumns, true) || $value === '') {
+                continue;
+            }
+            $where[] = sprintf('`%s` LIKE :filter_%s', $col, $col);
+            $params['filter_' . $col] = '%' . $value . '%';
+        }
+        $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+        $orderSql = '';
+        if ($sortColumn !== null && in_array($sortColumn, $validColumns, true)) {
+            $dir = strtoupper($sortDir) === 'DESC' ? 'DESC' : 'ASC';
+            $orderSql = sprintf('ORDER BY `%s` %s', $sortColumn, $dir);
+        }
+
+        $pageSize = max(1, min($pageSize, 500));
+        $offset = max(0, ($page - 1) * $pageSize);
+
+        $sql = sprintf('SELECT * FROM `%s`.`%s` %s %s LIMIT :limit OFFSET :offset', $db, $table, $whereSql, $orderSql);
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limit', $pageSize, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+
+        $countSql = sprintf('SELECT COUNT(*) FROM `%s`.`%s` %s', $db, $table, $whereSql);
+        $countStmt = $this->pdo->prepare($countSql);
+        foreach ($params as $key => $value) {
+            $countStmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
+        }
+        $countStmt->execute();
+        $total = (int) $countStmt->fetchColumn();
+
+        return ['rows' => $rows, 'total' => $total, 'page' => $page, 'pageSize' => $pageSize];
+    }
+
     public function listTables(string $db): array
     {
         $this->assertValidDatabase($db);
