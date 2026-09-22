@@ -16,6 +16,7 @@
     <span class="topnav-user">
         <?= \App\View::e($user['username'] ?? '') ?> (<?= \App\View::e($user['role'] ?? '') ?>)
         <form method="post" action="/logout" style="display:inline">
+            <input type="hidden" name="csrf_token" value="<?= \App\View::e(\App\Csrf::token()) ?>">
             <button type="submit">Logout</button>
         </form>
     </span>

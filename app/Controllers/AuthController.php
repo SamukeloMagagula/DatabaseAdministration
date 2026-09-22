@@ -50,6 +50,10 @@ final class AuthController
 
     public function handleLogout(): string
     {
+        if (!Csrf::validate($_POST['csrf_token'] ?? null)) {
+            http_response_code(400);
+            return 'Invalid form submission.';
+        }
         Auth::logout();
         return Http::redirect('/login');
     }
