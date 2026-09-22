@@ -73,7 +73,7 @@ final class Auth
         }
         if (!in_array($user['role'], $roles, true)) {
             http_response_code(403);
-            return View::render('error_403', ['user' => $user]);
+            return View::render('error_403', ['user' => $user], null);
         }
         return null;
     }
