@@ -6,7 +6,7 @@ final class SqlStatementClassifier
 {
     private const DML = ['SELECT', 'INSERT', 'UPDATE', 'DELETE'];
     private const DDL_KEYWORDS = ['CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME'];
-    private const READONLY_KEYWORDS = ['SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN'];
+    private const READONLY_KEYWORDS = ['SHOW', 'DESCRIBE', 'DESC'];
 
     public static function classify(string $sql): string
     {

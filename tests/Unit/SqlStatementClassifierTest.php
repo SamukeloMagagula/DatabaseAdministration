@@ -26,7 +26,7 @@ final class SqlStatementClassifierTest extends TestCase
             ['TRUNCATE TABLE widgets', 'DDL'],
             ['SHOW TABLES', 'SELECT'],
             ['DESCRIBE widgets', 'SELECT'],
-            ['EXPLAIN SELECT 1', 'SELECT'],
+            ['EXPLAIN SELECT 1', 'OTHER'],
             ["-- a comment\nSELECT 1", 'SELECT'],
         ];
     }
