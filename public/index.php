@@ -5,6 +5,7 @@ require __DIR__ . '/../vendor/autoload.php';
 use App\Config;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\SqlConsoleController;
 use App\Controllers\TableController;
 use App\Router;
 use App\View;
@@ -21,6 +22,7 @@ $router = new Router();
 $auth = new AuthController();
 $dashboard = new DashboardController();
 $tables = new TableController();
+$sqlConsole = new SqlConsoleController();
 
 $router->add('GET', '/login', fn($p) => $auth->showLogin());
 $router->add('POST', '/login', fn($p) => $auth->handleLogin());
@@ -34,6 +36,8 @@ $router->add('POST', '/db/{db}/table/{table}/rows', fn($p) => $tables->createRow
 $router->add('GET', '/db/{db}/table/{table}/row/{pk}/edit', fn($p) => $tables->editRowForm($p['db'], $p['table'], $p['pk']));
 $router->add('POST', '/db/{db}/table/{table}/row/{pk}', fn($p) => $tables->updateRow($p['db'], $p['table'], $p['pk']));
 $router->add('POST', '/db/{db}/table/{table}/row/{pk}/delete', fn($p) => $tables->deleteRow($p['db'], $p['table'], $p['pk']));
+$router->add('GET', '/sql', fn($p) => $sqlConsole->show());
+$router->add('POST', '/sql', fn($p) => $sqlConsole->execute());
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $match = $router->match($_SERVER['REQUEST_METHOD'], $path);
