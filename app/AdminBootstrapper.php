@@ -1,0 +1,30 @@
+<?php
+
+namespace App;
+
+use PDO;
+
+final class AdminBootstrapper
+{
+    public function __construct(private PDO $pdo)
+    {
+    }
+
+    public function createFirstAdmin(string $username, string $password): void
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM app_users WHERE username = :u');
+        $stmt->execute(['u' => $username]);
+        if ($stmt->fetchColumn()) {
+            throw new \RuntimeException("User '{$username}' already exists.");
+        }
+
+        $insert = $this->pdo->prepare(
+            'INSERT INTO app_users (username, password_hash, role, is_active) VALUES (:u, :p, :r, 1)'
+        );
+        $insert->execute([
+            'u' => $username,
+            'p' => password_hash($password, PASSWORD_DEFAULT),
+            'r' => Roles::ADMIN,
+        ]);
+    }
+}
