@@ -1,0 +1,10 @@
+body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; }
+.topnav { background: #222; padding: 0.75rem 1rem; display: flex; gap: 1rem; align-items: center; }
+.topnav a { color: #fff; text-decoration: none; }
+.topnav-user { margin-left: auto; color: #ccc; }
+main { padding: 1.5rem; }
+table.grid { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+table.grid th, table.grid td { border: 1px solid #ccc; padding: 0.4rem 0.6rem; text-align: left; }
+.error { color: #b00020; }
+.login-page { max-width: 320px; margin: 4rem auto; text-align: center; }
+form label { display: block; margin: 0.5rem 0; }
