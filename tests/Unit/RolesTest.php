@@ -29,9 +29,11 @@ final class RolesTest extends TestCase
         }
     }
 
-    public function test_other_statement_type_is_always_allowed(): void
+    public function test_other_statement_type_requires_admin(): void
     {
-        $this->assertTrue(Roles::canRunStatementType(Roles::VIEWER, 'OTHER'));
+        $this->assertFalse(Roles::canRunStatementType(Roles::VIEWER, 'OTHER'));
+        $this->assertFalse(Roles::canRunStatementType(Roles::EDITOR, 'OTHER'));
+        $this->assertTrue(Roles::canRunStatementType(Roles::ADMIN, 'OTHER'));
     }
 
     public function test_is_valid(): void

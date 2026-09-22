@@ -24,7 +24,7 @@ final class Roles
     public static function canRunStatementType(string $role, string $statementType): bool
     {
         if ($statementType === 'OTHER') {
-            return true;
+            return $role === self::ADMIN;
         }
         return in_array($statementType, self::STATEMENT_PERMISSIONS[$role] ?? [], true);
     }

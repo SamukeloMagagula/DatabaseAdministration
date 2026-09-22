@@ -24,7 +24,9 @@ final class SqlStatementClassifierTest extends TestCase
             ['CREATE TABLE widgets (id INT)', 'DDL'],
             ['ALTER TABLE widgets ADD COLUMN qty INT', 'DDL'],
             ['TRUNCATE TABLE widgets', 'DDL'],
-            ['SHOW TABLES', 'OTHER'],
+            ['SHOW TABLES', 'SELECT'],
+            ['DESCRIBE widgets', 'SELECT'],
+            ['EXPLAIN SELECT 1', 'SELECT'],
             ["-- a comment\nSELECT 1", 'SELECT'],
         ];
     }

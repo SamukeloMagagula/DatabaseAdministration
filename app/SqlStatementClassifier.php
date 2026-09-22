@@ -6,6 +6,7 @@ final class SqlStatementClassifier
 {
     private const DML = ['SELECT', 'INSERT', 'UPDATE', 'DELETE'];
     private const DDL_KEYWORDS = ['CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME'];
+    private const READONLY_KEYWORDS = ['SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN'];
 
     public static function classify(string $sql): string
     {
@@ -21,6 +22,9 @@ final class SqlStatementClassifier
         }
         if (in_array($firstWord, self::DDL_KEYWORDS, true)) {
             return 'DDL';
+        }
+        if (in_array($firstWord, self::READONLY_KEYWORDS, true)) {
+            return 'SELECT';
         }
         return 'OTHER';
     }
