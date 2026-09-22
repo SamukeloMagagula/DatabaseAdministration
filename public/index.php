@@ -8,6 +8,7 @@ use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\SqlConsoleController;
 use App\Controllers\TableController;
+use App\Controllers\UserController;
 use App\Router;
 use App\View;
 
@@ -25,6 +26,7 @@ $dashboard = new DashboardController();
 $tables = new TableController();
 $sqlConsole = new SqlConsoleController();
 $audit = new AuditController();
+$users = new UserController();
 
 $router->add('GET', '/login', fn($p) => $auth->showLogin());
 $router->add('POST', '/login', fn($p) => $auth->handleLogin());
@@ -41,6 +43,10 @@ $router->add('POST', '/db/{db}/table/{table}/row/{pk}/delete', fn($p) => $tables
 $router->add('GET', '/sql', fn($p) => $sqlConsole->show());
 $router->add('POST', '/sql', fn($p) => $sqlConsole->execute());
 $router->add('GET', '/audit', fn($p) => $audit->index());
+$router->add('GET', '/users', fn($p) => $users->index());
+$router->add('POST', '/users', fn($p) => $users->create());
+$router->add('POST', '/users/{id}/role', fn($p) => $users->updateRole((int) $p['id']));
+$router->add('POST', '/users/{id}/active', fn($p) => $users->setActive((int) $p['id']));
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $match = $router->match($_SERVER['REQUEST_METHOD'], $path);
