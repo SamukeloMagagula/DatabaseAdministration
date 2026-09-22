@@ -14,7 +14,7 @@ already has MariaDB installed, with the app running on the same box.
     CREATE USER 'dbwebui_svc'@'localhost' IDENTIFIED BY 'CHANGE_ME';
     GRANT ALL PRIVILEGES ON dbwebui_app.* TO 'dbwebui_svc'@'localhost';
     GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX,
-          REFERENCES, TRUNCATE ON `your_app_db`.* TO 'dbwebui_svc'@'localhost';
+          REFERENCES ON `your_app_db`.* TO 'dbwebui_svc'@'localhost';
     -- Repeat the GRANT line for every database this tool should manage.
     -- Do NOT grant on *.* in production — scope it to the databases you
     -- actually want browsable/editable through this tool.
@@ -33,7 +33,10 @@ already has MariaDB installed, with the app running on the same box.
 ## 4. Configure the app
 
     sudo -u dbwebui cp .env.example .env
-    sudo -u dbwebui vi .env   # set DB_HOST, DB_USER, DB_PASS, DB_APP_SCHEMA
+    sudo -u dbwebui vi .env
+    # Set DB_HOST=localhost (not the shipped 127.0.0.1 default) so PDO connects
+    # over the Unix socket, matching the 'dbwebui_svc'@'localhost' account created
+    # in step 2. Also set DB_USER, DB_PASS, and DB_APP_SCHEMA.
 
 ## 5. Run migrations and create the first admin
 
