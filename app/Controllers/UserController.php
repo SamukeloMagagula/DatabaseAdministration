@@ -10,6 +10,7 @@ use App\Http;
 use App\Roles;
 use App\View;
 use PDO;
+use PDOException;
 
 final class UserController
 {
@@ -62,7 +63,12 @@ final class UserController
         }
 
         $actor = Auth::currentUser();
-        $this->createUser($username, $password, $role, $actor['id'], $actor['username']);
+        try {
+            $this->createUser($username, $password, $role, $actor['id'], $actor['username']);
+        } catch (PDOException $e) {
+            http_response_code(409);
+            return 'That username already exists.';
+        }
 
         return Http::redirect('/users');
     }
