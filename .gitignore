@@ -1,6 +1,5 @@
 .worktrees/
-/vendor/
-/.env
-/.env.testing
-/composer.lock
-.phpunit.cache/
+.claude/
+# The checked-in config.php is a template. A real one, wherever CONFIG_PATH
+# (settings.php) points to, is never meant to be committed.
+/tests/config.testing.php

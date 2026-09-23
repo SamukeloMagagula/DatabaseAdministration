@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+// Copy this file to tests/config.testing.php (gitignored) and point it at a
+// disposable MariaDB server/account. tests/run.php creates and owns the
+// `dbwebui_app_test` schema itself — this only needs to be a real server the
+// given account can reach, with rights to create that schema and tables in
+// it, plus a throwaway fixture schema or two along the way.
+const DB_HOST = '127.0.0.1';
+const DB_PORT = '3306';
+const DB_USER = 'dbwebui_svc';
+const DB_PASS = 'changeme';
+
+function connect(): PDO
+{
+    $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';charset=utf8mb4';
+    return new PDO($dsn, DB_USER, DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_MULTI_STATEMENTS => false,
+    ]);
+}
+
+function quote_ident(string $identifier): string
+{
+    return '`' . str_replace('`', '``', $identifier) . '`';
+}
+
+function app_schema(): string
+{
+    return quote_ident(DB_APP_SCHEMA);
+}
+
+function app_table(string $table): string
+{
+    return app_schema() . '.' . quote_ident($table);
+}

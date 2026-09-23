@@ -1,11 +1,13 @@
-# Deploying the MariaDB Web Admin Tool (Phase 1)
+# Deploying Database Administration (Phase 1)
 
 Target: a fresh RHEL-family server (RHEL/CentOS/Rocky/AlmaLinux) that
 already has MariaDB installed, with the app running on the same box.
 
 ## 1. Install the web stack
 
-    sudo dnf install -y nginx php-fpm php-pdo php-mysqlnd composer git
+    sudo dnf install -y nginx php-fpm php-pdo php-mysqlnd git
+
+No Composer, no Node — this app has no dependency toolchain by design.
 
 ## 2. Create the MariaDB service account and app schema
 
@@ -33,15 +35,13 @@ separate, more restricted database account for user-supplied SQL.
 
     sudo mkdir -p /var/www/dbwebui
     sudo git clone <your-repo-url> /var/www/dbwebui
-    cd /var/www/dbwebui
-    composer install --no-dev --optimize-autoloader
     sudo useradd --system --no-create-home dbwebui
     sudo chown -R dbwebui:dbwebui /var/www/dbwebui
 
 Create the PHP session directory. The pool runs as `dbwebui`, which cannot
 write to RHEL's default `/var/lib/php/session` (owned `root:apache`, mode
 `0770`) — without this step `session_start()` cannot persist anything and
-every login silently bounces back to `/login`. The matching
+every login silently bounces back to the sign-in page. The matching
 `session.save_path` is already set in `deploy/php-fpm-pool.conf.example`.
 
     sudo mkdir -p /var/lib/dbwebui/session
@@ -63,22 +63,46 @@ local socket, also run `sudo setsebool -P httpd_can_network_connect_db 1`.
 
 ## 4. Configure the app
 
-    sudo -u dbwebui cp .env.example .env
-    sudo -u dbwebui vi .env
-    # Set DB_HOST=localhost (not the shipped 127.0.0.1 default) so PDO connects
-    # over the Unix socket, matching the 'dbwebui_svc'@'localhost' account created
-    # in step 2. Also set DB_USER, DB_PASS, and DB_APP_SCHEMA.
+The checked-in `config.php` is a template with placeholder credentials —
+never edit it in place. The real one lives outside the served tree, at the
+path `CONFIG_PATH` (`settings.php`) points to by default:
 
-## 5. Run migrations and create the first admin
+    sudo mkdir -p /var/www/private
+    sudo -u dbwebui cp config.php /var/www/private/config.php
+    sudo -u dbwebui vi /var/www/private/config.php
+    # Set DB_HOST to 'localhost' (not '127.0.0.1') so PDO connects over the
+    # Unix socket, matching the 'dbwebui_svc'@'localhost' account created in
+    # step 2. Also set DB_USER and DB_PASS.
+    sudo chmod 600 /var/www/private/config.php
 
-    sudo -u dbwebui php bin/migrate.php
-    sudo -u dbwebui php bin/bootstrap_admin.php
+If `/var/www/private` is not where you want it, point `settings.php` at it
+instead by setting the `DBADMIN_CONFIG` environment variable in the PHP-FPM
+pool config (`env[DBADMIN_CONFIG] = /path/to/config.php`) rather than editing
+`settings.php` itself.
+
+## 5. Apply the schema and create the first admin
+
+    sudo -u dbwebui mariadb dbwebui_app < schema.sql
+    sudo -u dbwebui php cli/bootstrap_admin.php
+
+`schema.sql` is safe to run more than once — every statement is
+`IF NOT EXISTS`. There is no migration-tracking table and no runner: this app
+has no dependency toolchain, and the checked-in file is meant to be read and
+re-applied by hand when it changes, the same way you would with any other
+plain `.sql` file.
 
 ## 6. Configure PHP-FPM and Nginx
 
     sudo cp deploy/php-fpm-pool.conf.example /etc/php-fpm.d/dbwebui.conf
     sudo cp deploy/nginx.conf.example /etc/nginx/conf.d/dbwebui.conf
     # Edit both to match your paths/hostname if you deviated from the defaults.
+
+This app has no front controller — `index.php`, `table.php`, `sql.php` and the
+rest are each requested directly, and the document root is the app's own
+checkout. `deploy/nginx.conf.example` explicitly denies `tests/`, `cli/`,
+`docs/` and any `.sql`/dotfile — none of those are meant to be web-facing, even
+though nothing stops PHP-FPM from executing a `.php` file anywhere under the
+root if a request reaches it.
 
 ## 7. TLS certificate
 
@@ -113,7 +137,8 @@ localhost, and that's the only access path this deployment needs.
 
 ## 10. Smoke test
 
-Visit `https://<server-hostname>/login`, accept the self-signed cert
+Visit `https://<server-hostname>/index.php`, accept the self-signed cert
 warning (if applicable), and log in with the admin account created in
 step 5. Confirm you can see the database list, browse a real table, run
-`SELECT 1` in the SQL console, and that the action shows up on `/audit`.
+`SELECT 1` in the SQL console, and that the action shows up on
+`/audit_log.php`.

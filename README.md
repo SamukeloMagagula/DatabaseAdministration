@@ -1,6 +1,6 @@
 # Database Administration
 
-A lightweight, plain-PHP web admin tool for MariaDB — browse databases and tables, edit data through a grid, run ad-hoc SQL, and manage who's allowed to do what, all from a browser. No framework, no build step.
+A lightweight, plain-PHP web admin tool for MariaDB — browse databases and tables, edit data through a grid, run ad-hoc SQL, and manage who's allowed to do what, all from a browser. No framework, no dependency toolchain.
 
 ## Features (Phase 1)
 
@@ -14,63 +14,91 @@ A lightweight, plain-PHP web admin tool for MariaDB — browse databases and tab
 
 ## Tech stack
 
-Plain PHP 8.1+ (no framework), PDO for MariaDB access, PHPUnit for tests, Composer for autoloading only. Deploys behind Nginx + PHP-FPM.
+Plain PHP 8.1+, functions instead of classes, no framework, no Composer, no PHPUnit — this app has no dependency toolchain by design, so it runs on a server exactly as checked out. PDO for MariaDB access. Deploys behind Nginx + PHP-FPM.
 
 ## Project layout
 
+Every page a browser requests directly is its own file at the repository root — there is no front controller or router. Shared logic lives in small, single-purpose library files, also at the root, each named for what it does.
+
 ```
-app/                  Application classes (Auth, Roles, Csrf, Database, controllers, ...)
-bin/                  CLI scripts (run migrations, bootstrap the first admin)
-deploy/               Example Nginx / PHP-FPM configs
-docs/                 Design spec, implementation plan, deployment runbook
-migrations/           SQL schema migrations for the app's own tables
-public/               Web root (front controller + static assets)
-resources/views/      PHP templates
-tests/                PHPUnit unit and integration tests
+index.php, database.php, table.php,   Pages — request these directly.
+sql.php, manage_users.php,            Each guards itself (require_login()/
+audit_log.php                         require_role()) and renders a view.
+
+auth/auth.php                         POST-only login/logout endpoint.
+auth/guard.php                        require_login(), require_role(), current_user().
+
+config.php                            DB credentials + connect(): PDO. Template only —
+                                       see "Configuration" below.
+settings.php                          Every other constant, env-overridable.
+errors.php, view.php, csrf.php,       Small single-purpose libraries. Each is used by
+roles.php, sql_classifier.php,        more than one page; none has its own page.
+audit.php, ratelimit.php,
+db_browser.php, grid.php,
+sql_console.php, users.php
+
+views/                                Plain PHP templates, rendered by view.php.
+assets/                                Static files (stylesheet).
+
+cli/bootstrap_admin.php               Create the first admin account.
+schema.sql                            This app's own tables. Plain SQL, no migration
+                                       runner — see "Database setup" below.
+
+deploy/                               Example Nginx / PHP-FPM configs.
+docs/                                 Design spec, implementation plan, deployment runbook.
+tests/                                Custom test runner + test_*.php files.
 ```
 
 ## Requirements
 
 - PHP 8.1+ with the `pdo_mysql` extension
-- Composer
 - A MariaDB server (the app connects to it; it doesn't bundle one)
 
-## Local setup
+Nothing else — no Composer, no build step, no Node.
+
+## Configuration
+
+The checked-in `config.php` is a template with placeholder credentials, not something you edit in place. Copy it somewhere else and point `settings.php`'s `CONFIG_PATH` at it — either by editing the default in `settings.php`, or by setting the `DBADMIN_CONFIG` environment variable, which takes priority. In production this file lives outside the web-servable tree; see [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+`connect()` (in `config.php`) deliberately opens with **no default database**. The SQL console lets an editor or viewer run SQL of their own choosing over that same connection — if it defaulted to this app's own schema, an unqualified `UPDATE app_users …` would silently land on it. Every query this app makes against its own tables names the schema explicitly, via `app_table()`.
+
+## Database setup
+
+Create the app's own schema (name it via `DB_APP_SCHEMA` in `settings.php`, default `dbwebui_app`) and apply the schema file directly with the `mariadb` client:
 
 ```bash
-composer install
-cp .env.example .env
-cp .env.testing.example .env.testing
+mariadb dbwebui_app < schema.sql
 ```
 
-Edit `.env` (and `.env.testing`) with your database connection details. The app expects its own schema (default name `dbwebui_app`) to already exist, plus a MariaDB user with privileges on it and on whatever databases you want to manage. See [`docs/DEPLOY.md`](docs/DEPLOY.md) for the exact `CREATE USER`/`GRANT` statements.
+`schema.sql` is a single file of `CREATE TABLE IF NOT EXISTS` statements, safe to re-run. There is no migration-tracking table and no runner — this app has no dependency toolchain, so schema changes are read and re-applied by hand, the same as any other plain `.sql` file.
 
-Run migrations to create the app's own tables (`app_users`, `login_attempts`, `audit_log`):
+Then create the first admin account:
 
 ```bash
-php bin/migrate.php
+php cli/bootstrap_admin.php
 ```
 
-Create the first admin account:
+Every account after that is created from the Manage Users page by an admin who already exists.
+
+## Running the app locally
 
 ```bash
-php bin/bootstrap_admin.php
+php -S 127.0.0.1:8080
 ```
 
-Serve the app locally with PHP's built-in server:
-
-```bash
-php -S 127.0.0.1:8080 -t public
-```
+Log in at `http://127.0.0.1:8080/index.php`.
 
 ## Running the tests
 
 ```bash
-composer install
-vendor/bin/phpunit
+cp tests/config.testing.php.example tests/config.testing.php
+# edit tests/config.testing.php with a disposable MariaDB server's credentials
+php tests/run.php
 ```
 
-Integration tests need a real MariaDB connection (configured via `.env.testing`) and a database user with enough privileges to create/drop a disposable fixture schema — see the "Prerequisites" section of [`docs/superpowers/plans/2026-09-22-mariadb-web-admin-phase1.md`](docs/superpowers/plans/2026-09-22-mariadb-web-admin-phase1.md) for the exact setup SQL.
+No Composer, no PHPUnit — `tests/run.php` is a ~100-line runner with `test()`/`same()`/`check()`. It creates and owns the `dbwebui_app_test` schema itself by applying `schema.sql`, and several test files also create/drop a throwaway fixture database (`wbtest_fixture`) — the account in `tests/config.testing.php` needs rights to do both.
+
+Pages that guard themselves with `require_login()`/`require_role()` (everything under "Pages" above, plus `auth/auth.php`) are not covered by the automated suite: those functions `exit()` on failure, which the test runner has no way to intercept. What's tested instead is everything those pages call into — the SQL console's role and schema guards, the data grid's SQL, rate limiting, audit logging, user management — which is where a mistake would actually matter. This is a deliberate trade-off, not an oversight; treat any change to `auth/auth.php`, `table.php`, `sql.php`, or `manage_users.php` as needing a manual smoke test in a browser in addition to the suite.
 
 ## Deployment
 

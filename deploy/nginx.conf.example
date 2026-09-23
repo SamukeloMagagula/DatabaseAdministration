@@ -5,23 +5,31 @@ server {
     ssl_certificate     /etc/pki/tls/certs/dbwebui.crt;
     ssl_certificate_key /etc/pki/tls/private/dbwebui.key;
 
-    root /var/www/dbwebui/public;
+    # This app has no front controller — index.php, table.php, sql.php and the
+    # rest are each requested directly, the same way api.php/auth.php/index.php
+    # are in the app this deployment style is modelled on. The document root is
+    # the app's own checkout; only the directories with no business being
+    # web-facing (tests, cli, docs, the real config.php's example, git/editor
+    # metadata) are explicitly denied below.
+    root /var/www/dbwebui;
     index index.php;
 
     location / {
-        try_files $uri /index.php?$query_string;
+        try_files $uri $uri/ =404;
     }
 
     location ~ \.php$ {
         fastcgi_pass unix:/run/php-fpm/dbwebui.sock;
         fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;
     }
 
-    location ~ /\.(?!well-known) {
-        deny all;
-    }
+    location ^~ /tests/     { deny all; }
+    location ^~ /cli/       { deny all; }
+    location ^~ /docs/      { deny all; }
+    location ~ \.sql$       { deny all; }
+    location ~ /\.(?!well-known) { deny all; }
 }
 
 server {
