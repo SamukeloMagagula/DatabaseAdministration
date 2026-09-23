@@ -1,13 +1,20 @@
 -- This app's own tables: accounts, login throttling, and the audit trail.
 --
---   mariadb dbwebui_app < schema.sql
+--   mariadb < schema.sql
 --
--- Safe to run more than once — every statement is IF NOT EXISTS. Run it
--- against the schema named by DB_APP_SCHEMA (settings.php), not against any
--- database this app is meant to administer: connect() (config.php) opens
--- with no default database specifically so this app's own tables stay out of
--- reach of the SQL console and data grid, and applying this file to the
--- wrong schema would defeat that.
+-- Safe to run more than once — every statement is IF NOT EXISTS, including
+-- the CREATE DATABASE below, so re-running this file changes nothing that
+-- already matches it.
+--
+-- The database name is set explicitly here rather than left to however this
+-- file happens to be invoked — it must be `dbwebui_app`, matching the default
+-- DB_APP_SCHEMA in settings.php, or whatever you changed that to. Getting
+-- this wrong matters: connect() (config.php) opens with no default database
+-- specifically so this app's own tables stay out of reach of the SQL console
+-- and data grid, and applying this file to the wrong schema — or relying on
+-- the invoking command to pick one — would defeat that.
+CREATE DATABASE IF NOT EXISTS dbwebui_app;
+USE dbwebui_app;
 
 CREATE TABLE IF NOT EXISTS app_users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

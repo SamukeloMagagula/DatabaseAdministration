@@ -9,10 +9,9 @@ already has MariaDB installed, with the app running on the same box.
 
 No Composer, no Node — this app has no dependency toolchain by design.
 
-## 2. Create the MariaDB service account and app schema
+## 2. Create the MariaDB service account
 
     sudo mysql -u root -p <<'SQL'
-    CREATE DATABASE dbwebui_app;
     CREATE USER 'dbwebui_svc'@'localhost' IDENTIFIED BY 'CHANGE_ME';
     GRANT ALL PRIVILEGES ON dbwebui_app.* TO 'dbwebui_svc'@'localhost';
     GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX,
@@ -22,6 +21,12 @@ No Composer, no Node — this app has no dependency toolchain by design.
     -- actually want browsable/editable through this tool.
     FLUSH PRIVILEGES;
     SQL
+
+Not creating `dbwebui_app` here is deliberate: `GRANT ... ON dbwebui_app.*` works
+whether or not that database exists yet, and having granted it, `dbwebui_svc`
+itself is then able to create it — which step 5 has it do, via `schema.sql`'s own
+`CREATE DATABASE IF NOT EXISTS`. One statement of truth for the schema's name
+instead of two that have to be kept in sync.
 
 The service account needs full rights on `dbwebui_app` to maintain the app's own
 tables, and the app keeps that schema out of the UI: the table browser rejects it
@@ -82,14 +87,19 @@ pool config (`env[DBADMIN_CONFIG] = /path/to/config.php`) rather than editing
 
 ## 5. Apply the schema and create the first admin
 
-    sudo -u dbwebui mariadb dbwebui_app < schema.sql
+    sudo -u dbwebui mariadb < schema.sql
     sudo -u dbwebui php cli/bootstrap_admin.php
 
-`schema.sql` is safe to run more than once — every statement is
-`IF NOT EXISTS`. There is no migration-tracking table and no runner: this app
-has no dependency toolchain, and the checked-in file is meant to be read and
-re-applied by hand when it changes, the same way you would with any other
-plain `.sql` file.
+No database argument on that first command — `schema.sql` creates and selects
+`dbwebui_app` itself (that's what step 2's `GRANT` was for), so a positional
+database argument would only fail if the schema didn't exist yet, which at
+this exact point is the one time it's guaranteed not to.
+
+`schema.sql` is safe to run more than once — every statement, including its
+own `CREATE DATABASE`, is `IF NOT EXISTS`. There is no migration-tracking
+table and no runner: this app has no dependency toolchain, and the checked-in
+file is meant to be read and re-applied by hand when it changes, the same way
+you would with any other plain `.sql` file.
 
 ## 6. Configure PHP-FPM and Nginx
 

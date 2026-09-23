@@ -64,13 +64,13 @@ The checked-in `config.php` is a template with placeholder credentials, not some
 
 ## Database setup
 
-Create the app's own schema (name it via `DB_APP_SCHEMA` in `settings.php`, default `dbwebui_app`) and apply the schema file directly with the `mariadb` client:
+Apply the schema file directly with the `mariadb` client — no database argument, since the file creates and selects its own:
 
 ```bash
-mariadb dbwebui_app < schema.sql
+mariadb < schema.sql
 ```
 
-`schema.sql` is a single file of `CREATE TABLE IF NOT EXISTS` statements, safe to re-run. There is no migration-tracking table and no runner — this app has no dependency toolchain, so schema changes are read and re-applied by hand, the same as any other plain `.sql` file.
+`schema.sql` creates its own database (`dbwebui_app` by default — if you changed `DB_APP_SCHEMA` in `settings.php`, edit the `CREATE DATABASE`/`USE` lines at the top of `schema.sql` to match) and then the app's own tables, all as `CREATE ... IF NOT EXISTS`, safe to re-run. There is no migration-tracking table and no runner — this app has no dependency toolchain, so schema changes are read and re-applied by hand, the same as any other plain `.sql` file.
 
 Then create the first admin account:
 

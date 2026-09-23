@@ -58,18 +58,37 @@ function test_pdo(): PDO
 }
 
 /**
- * The schema itself is the one thing outside schema.sql's own remit — in
- * production an administrator creates it before applying the file. Each
- * CREATE TABLE is executed on its own: connect() disables multi-statement
- * queries so that a stacked statement smuggled through the SQL console can
- * never run, and that restriction applies here too.
+ * schema.sql's own CREATE DATABASE/USE name the production schema
+ * (dbwebui_app) explicitly, by design — see the comment at its top. Tests
+ * need a different, disposable database instead (dbwebui_app_test by
+ * default), so those two statements are skipped here rather than run: a
+ * literal CREATE DATABASE dbwebui_app would create an unwanted database on
+ * whatever server the tests point at, and USE would leave the *shared* test
+ * connection defaulted to it for the rest of the run — exactly the
+ * no-default-schema property connect() (config.php) exists to guarantee, and
+ * that several tests (e.g. "an unqualified statement cannot reach the app
+ * schema") specifically check for.
+ *
+ * Comments are stripped before splitting on `;`, not just trimmed off each
+ * piece afterward: schema.sql is prose-commented, and a comment whose text
+ * happens to contain a semicolon (one does) would otherwise split there too.
+ * Safe here because schema.sql is DDL only — no string literals whose
+ * content this could misread as a comment.
+ *
+ * Each remaining CREATE TABLE is executed on its own: connect() disables
+ * multi-statement queries so that a stacked statement smuggled through the
+ * SQL console can never run, and that restriction applies here too.
  */
 function apply_test_schema(): void
 {
     test_pdo()->exec('CREATE DATABASE IF NOT EXISTS ' . app_schema());
 
-    $statements = array_filter(array_map('trim', explode(';', (string) file_get_contents(__DIR__ . '/../schema.sql'))));
+    $sql = (string) file_get_contents(__DIR__ . '/../schema.sql');
+    $sql = preg_replace('/--.*$/m', '', $sql);
+
+    $statements = array_filter(array_map('trim', explode(';', $sql)));
     foreach ($statements as $statement) {
+        if (stripos($statement, 'CREATE TABLE') !== 0) continue; // skips the leading CREATE DATABASE/USE
         test_pdo()->exec(str_replace('CREATE TABLE IF NOT EXISTS ', 'CREATE TABLE IF NOT EXISTS ' . app_schema() . '.', $statement));
     }
 }
