@@ -31,15 +31,7 @@ function render_template(string $view, array $data): string
     return (string) ob_get_clean();
 }
 
-/** Point render() at a different templates directory. Tests use this for fixtures. */
-function set_views_path(string $path): void
+function views_path(): string
 {
-    views_path($path);
-}
-
-function views_path(?string $set = null): string
-{
-    static $path = null;
-    if ($set !== null) $path = $set;
-    return $path ??= __DIR__ . '/views';
+    return __DIR__ . '/views';
 }

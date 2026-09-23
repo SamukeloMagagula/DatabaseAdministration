@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Log in</title><link rel="stylesheet" href="/assets/style.css"></head>
+<head><meta charset="utf-8"><title>Log in</title><link rel="stylesheet" href="/assets/style.css"><script src="/assets/app.js" defer></script></head>
 <body>
 <main class="login-page">
 <h1>Database Administration</h1>

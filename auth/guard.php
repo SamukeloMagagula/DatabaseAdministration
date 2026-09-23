@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../settings.php';
-require_once __DIR__ . '/../view.php';
 
 /** The signed-in visitor's username/role, or null when nobody is signed in. */
 function current_user(): ?array
@@ -29,10 +28,10 @@ function require_login(): void
 function require_role(string ...$roles): void
 {
     require_login();
-    $user = current_user();
-    if (in_array($user['role'], $roles, true)) return;
+    if (in_array(current_user()['role'], $roles, true)) return;
 
     http_response_code(403);
-    echo render('error_403', ['user' => $user], null);
+    header('Content-Type: text/html; charset=utf-8');
+    readfile(__DIR__ . '/../assets/errors/403.html');
     exit;
 }

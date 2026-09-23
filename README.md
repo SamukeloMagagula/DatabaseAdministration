@@ -44,7 +44,8 @@ db_browser.php, grid.php,
 sql_console.php, export.php
 
 views/                                Plain PHP templates, rendered by view.php.
-assets/                               Static files (stylesheet).
+assets/                               Stylesheet, plain JS, and the static error pages,
+                                       served directly rather than through view.php.
 
 schema.sql                            This app's own tables. Plain SQL, no migration
                                        runner, see "Database setup" below.

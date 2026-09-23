@@ -36,7 +36,7 @@
 <td>
 <?php if ($primaryKey !== null && in_array($user['role'], [ROLE_EDITOR, ROLE_ADMIN], true)): $pkSeg = rawurlencode((string) $row[$primaryKey]); ?>
     <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=edit&pk=<?= e($pkSeg) ?>">Edit</a>
-    <form method="post" action="/table.php" style="display:inline" onsubmit="return confirm('Delete this row?');">
+    <form method="post" action="/table.php" class="inline-form" data-confirm="Delete this row?">
         <input type="hidden" name="db" value="<?= e($db) ?>">
         <input type="hidden" name="table" value="<?= e($table) ?>">
         <input type="hidden" name="action" value="delete">
