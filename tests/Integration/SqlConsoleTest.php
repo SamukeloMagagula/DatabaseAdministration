@@ -189,6 +189,98 @@ final class SqlConsoleTest extends TestCase
         $this->assertStringContainsString('restricted schema', $line['error']);
     }
 
+    /**
+     * `--` only starts a comment in MariaDB when whitespace follows it, so
+     * `1--2` is arithmetic. A stripper that truncates the line anyway would
+     * delete the real reference that follows, and a block comment defeats the
+     * raw-text pass, so both passes had to miss this for it to execute.
+     */
+    public function test_non_admin_cannot_hide_the_app_schema_behind_a_fake_line_comment(): void
+    {
+        $console = new SqlConsoleController();
+        $appSchema = Database::appSchemaName();
+
+        $result = $console->runStatement(
+            "SELECT 1--2 AS x, u.* FROM {$appSchema}/**/.app_users u",
+            Roles::VIEWER,
+            1,
+            'vic'
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('restricted schema', $result['error']);
+    }
+
+    public function test_non_admin_cannot_hide_the_app_schema_behind_a_string_literal(): void
+    {
+        $console = new SqlConsoleController();
+        $appSchema = Database::appSchemaName();
+
+        // The '-- x' is a string literal, not a comment, so the reference that
+        // follows it is real.
+        $result = $console->runStatement(
+            "SELECT '-- x' AS note, u.* FROM {$appSchema}/**/.app_users u",
+            Roles::VIEWER,
+            1,
+            'vic'
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('restricted schema', $result['error']);
+    }
+
+    public function test_non_admin_cannot_reach_the_app_schema_through_an_executable_comment(): void
+    {
+        $console = new SqlConsoleController();
+        $appSchema = Database::appSchemaName();
+
+        // MariaDB *executes* the body of a /*! ... */ comment, so dropping it
+        // would hide a live reference to the app schema.
+        $result = $console->runStatement(
+            "UPDATE /*!{$appSchema}*/.app_users SET role = 'admin' WHERE username = 'ed'",
+            Roles::EDITOR,
+            1,
+            'ed'
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('restricted schema', $result['error']);
+    }
+
+    public function test_a_reference_inside_a_string_literal_still_trips_the_guard(): void
+    {
+        $console = new SqlConsoleController();
+        $appSchema = Database::appSchemaName();
+
+        // A '#' inside a literal is not a comment, so the qualified reference
+        // later in the statement is real and must still be rejected.
+        $result = $console->runStatement(
+            "UPDATE wbtest_fixture.widgets SET name = '#' WHERE id = "
+                . "(SELECT id FROM {$appSchema}.app_users LIMIT 1)",
+            Roles::EDITOR,
+            1,
+            'ed'
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('restricted schema', $result['error']);
+    }
+
+    public function test_a_trailing_comment_does_not_block_a_legitimate_statement(): void
+    {
+        $console = new SqlConsoleController();
+
+        $result = $console->runStatement(
+            "SELECT * FROM wbtest_fixture.widgets -- just a note\n",
+            Roles::VIEWER,
+            1,
+            'vic'
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(1, $result['rowCount']);
+    }
+
     public function test_unqualified_statement_cannot_reach_the_app_schema(): void
     {
         $console = new SqlConsoleController();

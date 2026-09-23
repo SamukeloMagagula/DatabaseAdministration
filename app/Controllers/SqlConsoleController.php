@@ -120,15 +120,98 @@ final class SqlConsoleController
      * Comment-stripped copy of the statement, for the app-schema check only.
      *
      * MariaDB's lexer treats a comment between an identifier and the following
-     * `.` exactly like whitespace, so a block or line comment wedged into that
-     * gap still yields a reference to the app schema. This returns a working
-     * copy for that detection pass; the statement sent to the server is never
-     * rewritten.
+     * `.` exactly like whitespace, so a comment wedged into that gap still
+     * yields a reference to the app schema. A naive regex strip is not enough
+     * here, because an attacker controls both copies that get checked and can
+     * defeat them independently:
+     *
+     *  - `--` begins a comment only when whitespace (or end of line) follows.
+     *    In `SELECT 1--2, x FROM app<block comment>.t` the `--2` is arithmetic,
+     *    not a comment, so a strip-to-end-of-line hides the real reference from
+     *    the stripped copy while the block comment hides it from the raw copy.
+     *  - A comment marker inside '…', "…" or `…` is not a comment at all, so
+     *    honouring it can likewise swallow a later real reference.
+     *  - The body of an executable `/*!` (or `/*M!`) comment is *executed* by
+     *    the server, so it must be kept rather than dropped.
+     *
+     * This walks the statement the way that lexer does and replaces each real
+     * comment with a single space. The statement sent to the server is never
+     * rewritten — this is a detection-only working copy.
      */
     private function stripCommentsForSchemaCheck(string $sql): string
     {
-        $stripped = preg_replace('#/\*.*?\*/#s', ' ', $sql) ?? $sql;
-        $stripped = preg_replace('/--.*$/m', ' ', $stripped) ?? $stripped;
-        return preg_replace('/#.*$/m', ' ', $stripped) ?? $stripped;
+        $out = '';
+        $len = strlen($sql);
+        $i = 0;
+        $quote = null;
+
+        while ($i < $len) {
+            $ch = $sql[$i];
+
+            // Inside a quoted string literal or quoted identifier: copy through
+            // verbatim, honouring backslash and doubled-quote escapes.
+            if ($quote !== null) {
+                $out .= $ch;
+                if ($ch === '\\' && $quote !== '`' && $i + 1 < $len) {
+                    $out .= $sql[$i + 1];
+                    $i += 2;
+                    continue;
+                }
+                if ($ch === $quote) {
+                    if ($i + 1 < $len && $sql[$i + 1] === $quote) {
+                        $out .= $quote;
+                        $i += 2;
+                        continue;
+                    }
+                    $quote = null;
+                }
+                $i++;
+                continue;
+            }
+
+            if ($ch === "'" || $ch === '"' || $ch === '`') {
+                $quote = $ch;
+                $out .= $ch;
+                $i++;
+                continue;
+            }
+
+            if ($ch === '/' && $i + 1 < $len && $sql[$i + 1] === '*') {
+                $end = strpos($sql, '*/', $i + 2);
+                $body = $end === false
+                    ? substr($sql, $i + 2)
+                    : substr($sql, $i + 2, $end - ($i + 2));
+                // Executable comment: the server runs the body, so keep it and
+                // drop only the `!`/`M!` marker and any version prefix.
+                if (preg_match('/^M?!/', $body) === 1) {
+                    $out .= ' ' . (preg_replace('/^M?!\d{0,5}/', '', $body) ?? $body) . ' ';
+                } else {
+                    $out .= ' ';
+                }
+                $i = $end === false ? $len : $end + 2;
+                continue;
+            }
+
+            $isLineComment = $ch === '#'
+                || ($ch === '-' && $i + 1 < $len && $sql[$i + 1] === '-'
+                    && ($i + 2 >= $len || ctype_space($sql[$i + 2]) || ord($sql[$i + 2]) < 32));
+
+            if ($isLineComment) {
+                $newline = strpos($sql, "\n", $i);
+                $out .= ' ';
+                if ($newline === false) {
+                    break;
+                }
+                // The newline itself is whitespace, not part of the comment.
+                $out .= "\n";
+                $i = $newline + 1;
+                continue;
+            }
+
+            $out .= $ch;
+            $i++;
+        }
+
+        return $out;
     }
 }
