@@ -1,8 +1,9 @@
+<?php $dbSeg = rawurlencode($db); $tableSeg = rawurlencode($table); ?>
 <h1><?= \App\View::e($db) ?>.<?= \App\View::e($table) ?></h1>
 <p>
-    <a href="/db/<?= \App\View::e($db) ?>/table/<?= \App\View::e($table) ?>/structure">View structure</a>
+    <a href="/db/<?= \App\View::e($dbSeg) ?>/table/<?= \App\View::e($tableSeg) ?>/structure">View structure</a>
     <?php if (in_array($user['role'], [\App\Roles::EDITOR, \App\Roles::ADMIN], true)): ?>
-        | <a href="/db/<?= \App\View::e($db) ?>/table/<?= \App\View::e($table) ?>/new">Insert row</a>
+        | <a href="/db/<?= \App\View::e($dbSeg) ?>/table/<?= \App\View::e($tableSeg) ?>/new">Insert row</a>
     <?php endif; ?>
 </p>
 
@@ -29,9 +30,9 @@
     <td><?= \App\View::e((string) ($row[$col['COLUMN_NAME']] ?? '')) ?></td>
 <?php endforeach; ?>
 <td>
-<?php if ($primaryKey !== null && in_array($user['role'], [\App\Roles::EDITOR, \App\Roles::ADMIN], true)): ?>
-    <a href="/db/<?= \App\View::e($db) ?>/table/<?= \App\View::e($table) ?>/row/<?= \App\View::e((string) $row[$primaryKey]) ?>/edit">Edit</a>
-    <form method="post" action="/db/<?= \App\View::e($db) ?>/table/<?= \App\View::e($table) ?>/row/<?= \App\View::e((string) $row[$primaryKey]) ?>/delete" style="display:inline" onsubmit="return confirm('Delete this row?');">
+<?php if ($primaryKey !== null && in_array($user['role'], [\App\Roles::EDITOR, \App\Roles::ADMIN], true)): $pkSeg = rawurlencode((string) $row[$primaryKey]); ?>
+    <a href="/db/<?= \App\View::e($dbSeg) ?>/table/<?= \App\View::e($tableSeg) ?>/row/<?= \App\View::e($pkSeg) ?>/edit">Edit</a>
+    <form method="post" action="/db/<?= \App\View::e($dbSeg) ?>/table/<?= \App\View::e($tableSeg) ?>/row/<?= \App\View::e($pkSeg) ?>/delete" style="display:inline" onsubmit="return confirm('Delete this row?');">
         <input type="hidden" name="csrf_token" value="<?= \App\View::e($csrfToken) ?>">
         <button type="submit">Delete</button>
     </form>

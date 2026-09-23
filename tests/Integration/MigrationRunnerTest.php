@@ -11,10 +11,11 @@ final class MigrationRunnerTest extends TestCase
     protected function setUp(): void
     {
         $pdo = Database::connection();
-        $pdo->exec('DROP TABLE IF EXISTS schema_migrations');
-        $pdo->exec('DROP TABLE IF EXISTS app_users');
-        $pdo->exec('DROP TABLE IF EXISTS login_attempts');
-        $pdo->exec('DROP TABLE IF EXISTS audit_log');
+        // The shared connection has no default database, so the app's own
+        // tables must be named with their schema here too.
+        foreach (['schema_migrations', 'app_users', 'login_attempts', 'audit_log'] as $table) {
+            $pdo->exec('DROP TABLE IF EXISTS ' . Database::appTable($table));
+        }
     }
 
     public function test_run_applies_all_migration_files(): void
@@ -28,9 +29,11 @@ final class MigrationRunnerTest extends TestCase
             $applied
         );
 
-        $tables = Database::connection()
-            ->query('SHOW TABLES')
-            ->fetchAll(\PDO::FETCH_COLUMN);
+        $stmt = Database::connection()->prepare(
+            'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = :schema'
+        );
+        $stmt->execute(['schema' => Database::appSchemaName()]);
+        $tables = $stmt->fetchAll(\PDO::FETCH_COLUMN);
         $this->assertContains('app_users', $tables);
         $this->assertContains('login_attempts', $tables);
         $this->assertContains('audit_log', $tables);

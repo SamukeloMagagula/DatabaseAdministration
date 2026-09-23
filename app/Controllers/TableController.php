@@ -127,7 +127,7 @@ final class TableController
         $user = Auth::currentUser();
         $this->insertRow($db, $table, $_POST['fields'] ?? [], $user['id'], $user['username']);
 
-        return Http::redirect("/db/{$db}/table/{$table}");
+        return Http::redirect('/db/' . rawurlencode($db) . '/table/' . rawurlencode($table));
     }
 
     public function editRowForm(string $db, string $table, string $pk): string
@@ -173,7 +173,7 @@ final class TableController
         $user = Auth::currentUser();
         $this->updateRowData($db, $table, $pkColumn, $pk, $_POST['fields'] ?? [], $user['id'], $user['username']);
 
-        return Http::redirect("/db/{$db}/table/{$table}");
+        return Http::redirect('/db/' . rawurlencode($db) . '/table/' . rawurlencode($table));
     }
 
     public function deleteRow(string $db, string $table, string $pk): string
@@ -195,7 +195,7 @@ final class TableController
         $user = Auth::currentUser();
         $this->deleteRowData($db, $table, $pkColumn, $pk, $user['id'], $user['username']);
 
-        return Http::redirect("/db/{$db}/table/{$table}");
+        return Http::redirect('/db/' . rawurlencode($db) . '/table/' . rawurlencode($table));
     }
 
     public function listRows(
@@ -210,14 +210,19 @@ final class TableController
         $this->assertValidTable($db, $table);
         $validColumns = array_column($this->columns($db, $table), 'COLUMN_NAME');
 
+        // Placeholder names are synthetic (filter0, filter1, …) rather than
+        // derived from the column name: a legal column such as `order-date`
+        // or `first name` is not a valid PDO placeholder token.
         $where = [];
         $params = [];
+        $i = 0;
         foreach ($filters as $col => $value) {
             if (!in_array($col, $validColumns, true) || $value === '') {
                 continue;
             }
-            $where[] = sprintf('`%s` LIKE :filter_%s', $col, $col);
-            $params['filter_' . $col] = '%' . $value . '%';
+            $ph = 'filter' . $i++;
+            $where[] = sprintf('`%s` LIKE :%s', $col, $ph);
+            $params[$ph] = '%' . $value . '%';
         }
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
@@ -274,16 +279,25 @@ final class TableController
             throw new InvalidArgumentException('No valid columns supplied');
         }
 
+        // Synthetic placeholder names (v0, v1, …) — see the note in listRows().
         $columns = array_keys($data);
+        $placeholders = [];
+        $params = [];
+        foreach ($columns as $i => $c) {
+            $ph = 'v' . $i;
+            $placeholders[] = ':' . $ph;
+            $params[$ph] = $data[$c];
+        }
+
         $sql = sprintf(
             'INSERT INTO `%s`.`%s` (%s) VALUES (%s)',
             $db,
             $table,
             implode(', ', array_map(fn($c) => "`$c`", $columns)),
-            implode(', ', array_map(fn($c) => ":$c", $columns))
+            implode(', ', $placeholders)
         );
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($data);
+        $stmt->execute($params);
 
         $this->auditLog->record($userId, $username, 'ROW_INSERT', $db, $table, json_encode($data));
     }
@@ -308,10 +322,22 @@ final class TableController
             throw new InvalidArgumentException('Invalid primary key column');
         }
 
-        $setSql = implode(', ', array_map(fn($c) => "`$c` = :$c", array_keys($data)));
-        $sql = sprintf('UPDATE `%s`.`%s` SET %s WHERE `%s` = :pk_value', $db, $table, $setSql, $pkColumn);
+        // Synthetic placeholder names (v0, v1, …) — see the note in listRows().
+        // This also removes the chance of a column literally named `pk_value`
+        // colliding with the WHERE-clause placeholder.
+        $setParts = [];
+        $params = [];
+        $i = 0;
+        foreach ($data as $c => $v) {
+            $ph = 'v' . $i++;
+            $setParts[] = "`$c` = :$ph";
+            $params[$ph] = $v;
+        }
+        $params['pk_value'] = $pkValue;
+
+        $sql = sprintf('UPDATE `%s`.`%s` SET %s WHERE `%s` = :pk_value', $db, $table, implode(', ', $setParts), $pkColumn);
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([...$data, 'pk_value' => $pkValue]);
+        $stmt->execute($params);
 
         $this->auditLog->record($userId, $username, 'ROW_UPDATE', $db, $table, json_encode(['pk' => $pkValue, 'set' => $data]));
     }
@@ -370,6 +396,14 @@ final class TableController
 
     protected function assertValidDatabase(string $db): void
     {
+        // The app's own schema (app_users/audit_log/login_attempts) is never
+        // browsable or editable through the grid — otherwise an editor could
+        // rewrite their own role and a viewer could read every password hash.
+        // Treated exactly like a nonexistent schema so callers need no changes.
+        if ($db === Database::appSchemaName()) {
+            throw new InvalidArgumentException('Unknown database');
+        }
+
         $stmt = $this->pdo->prepare('SELECT 1 FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = :db');
         $stmt->execute(['db' => $db]);
         if (!$stmt->fetchColumn()) {

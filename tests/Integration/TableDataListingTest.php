@@ -94,6 +94,27 @@ final class TableDataListingTest extends TestCase
         $this->assertSame(2, $result['page']);
     }
 
+    public function test_filters_work_on_columns_whose_names_are_not_valid_placeholders(): void
+    {
+        $this->pdo->exec(
+            'CREATE TABLE wbtest_fixture.odd (
+                `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `order-date` VARCHAR(20) NOT NULL,
+                `first name` VARCHAR(20) NOT NULL
+            )'
+        );
+        $this->pdo->exec(
+            "INSERT INTO wbtest_fixture.odd (`order-date`, `first name`) VALUES
+             ('2026-01-01', 'ada'), ('2026-02-02', 'bob')"
+        );
+        $controller = new TableController();
+
+        $result = $controller->listRows('wbtest_fixture', 'odd', 1, 50, null, 'ASC', ['first name' => 'ad']);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame(['ada'], array_column($result['rows'], 'first name'));
+    }
+
     public function test_data_action_renders_rows_for_logged_in_viewer(): void
     {
         $controller = new TableController();

@@ -11,7 +11,9 @@ final class AuditPageTest extends TestCase
 {
     protected function setUp(): void
     {
-        Database::connection()->exec('TRUNCATE TABLE audit_log');
+        // The shared connection has no default database, so the app's own
+        // tables must be named with their schema here too.
+        Database::connection()->exec('TRUNCATE TABLE ' . Database::appTable('audit_log'));
         (new AuditLog(Database::connection()))->record(1, 'alice', 'SQL_EXEC', null, null, 'SELECT 1');
     }
 

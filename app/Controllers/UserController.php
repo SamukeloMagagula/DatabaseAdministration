@@ -55,7 +55,8 @@ final class UserController
             return 'Username, password, and a valid role are required.';
         }
 
-        $exists = $this->pdo->prepare('SELECT 1 FROM app_users WHERE username = :u');
+        $appUsers = Database::appTable('app_users');
+        $exists = $this->pdo->prepare("SELECT 1 FROM {$appUsers} WHERE username = :u");
         $exists->execute(['u' => $username]);
         if ($exists->fetchColumn()) {
             http_response_code(409);
@@ -114,13 +115,18 @@ final class UserController
 
     public function all(): array
     {
-        return $this->pdo->query('SELECT id, username, role, is_active, created_at FROM app_users ORDER BY username')->fetchAll();
+        $appUsers = Database::appTable('app_users');
+
+        return $this->pdo
+            ->query("SELECT id, username, role, is_active, created_at FROM {$appUsers} ORDER BY username")
+            ->fetchAll();
     }
 
     public function createUser(string $username, string $password, string $role, int $actorId, string $actorUsername): void
     {
+        $appUsers = Database::appTable('app_users');
         $stmt = $this->pdo->prepare(
-            'INSERT INTO app_users (username, password_hash, role, is_active) VALUES (:u, :p, :r, 1)'
+            "INSERT INTO {$appUsers} (username, password_hash, role, is_active) VALUES (:u, :p, :r, 1)"
         );
         $stmt->execute([
             'u' => $username,
@@ -132,14 +138,16 @@ final class UserController
 
     public function setRole(int $userId, string $role, int $actorId, string $actorUsername): void
     {
-        $stmt = $this->pdo->prepare('UPDATE app_users SET role = :r WHERE id = :id');
+        $appUsers = Database::appTable('app_users');
+        $stmt = $this->pdo->prepare("UPDATE {$appUsers} SET role = :r WHERE id = :id");
         $stmt->execute(['r' => $role, 'id' => $userId]);
         $this->auditLog->record($actorId, $actorUsername, 'USER_UPDATE', null, null, "set user #{$userId} role to '{$role}'");
     }
 
     public function setActiveState(int $userId, bool $active, int $actorId, string $actorUsername): void
     {
-        $stmt = $this->pdo->prepare('UPDATE app_users SET is_active = :a WHERE id = :id');
+        $appUsers = Database::appTable('app_users');
+        $stmt = $this->pdo->prepare("UPDATE {$appUsers} SET is_active = :a WHERE id = :id");
         $stmt->execute(['a' => $active ? 1 : 0, 'id' => $userId]);
         $this->auditLog->record($actorId, $actorUsername, 'USER_UPDATE', null, null, 'set user #' . $userId . ' active=' . ($active ? '1' : '0'));
     }

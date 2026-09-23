@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS audit_log (
+CREATE TABLE IF NOT EXISTS {{app_schema}}.audit_log (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     app_user_id INT UNSIGNED NULL,
     username VARCHAR(64) NOT NULL,

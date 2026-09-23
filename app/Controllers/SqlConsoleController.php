@@ -76,6 +76,19 @@ final class SqlConsoleController
             return ['ok' => false, 'error' => "Your role is not permitted to run {$type} statements."];
         }
 
+        // Second layer of app-schema isolation. The shared connection has no
+        // default database (Database::connection()), so an *unqualified*
+        // reference to app_users/audit_log/login_attempts already fails. This
+        // rejects the *qualified* form for non-admins. Like
+        // SqlStatementClassifier, it is a deliberate heuristic, not a parser.
+        if ($role !== Roles::ADMIN) {
+            $appSchema = preg_quote(Database::appSchemaName(), '/');
+            if (preg_match('/`?' . $appSchema . '`?\s*\./i', $sql)) {
+                $this->auditLog->record($userId, $username, 'SQL_REJECTED', null, null, $sql);
+                return ['ok' => false, 'error' => 'This statement references a restricted schema.'];
+            }
+        }
+
         try {
             if ($type === 'SELECT') {
                 $stmt = $this->pdo->query($sql);

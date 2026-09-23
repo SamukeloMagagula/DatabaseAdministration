@@ -18,9 +18,10 @@ final class AuditLog
         ?string $targetTable,
         string $detail
     ): void {
+        $auditLog = Database::appTable('audit_log');
         $stmt = $this->pdo->prepare(
-            'INSERT INTO audit_log (app_user_id, username, action_type, target_db, target_table, detail)
-             VALUES (:uid, :username, :action, :db, :table, :detail)'
+            "INSERT INTO {$auditLog} (app_user_id, username, action_type, target_db, target_table, detail)
+             VALUES (:uid, :username, :action, :db, :table, :detail)"
         );
         $stmt->execute([
             'uid' => $userId,
@@ -55,8 +56,9 @@ final class AuditLog
         }
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
+        $auditLog = Database::appTable('audit_log');
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM audit_log {$whereSql} ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset"
+            "SELECT * FROM {$auditLog} {$whereSql} ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset"
         );
         foreach ($params as $key => $value) {
             $stmt->bindValue(':' . $key, $value);

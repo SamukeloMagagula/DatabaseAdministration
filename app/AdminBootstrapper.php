@@ -12,14 +12,16 @@ final class AdminBootstrapper
 
     public function createFirstAdmin(string $username, string $password): void
     {
-        $stmt = $this->pdo->prepare('SELECT 1 FROM app_users WHERE username = :u');
+        $appUsers = Database::appTable('app_users');
+
+        $stmt = $this->pdo->prepare("SELECT 1 FROM {$appUsers} WHERE username = :u");
         $stmt->execute(['u' => $username]);
         if ($stmt->fetchColumn()) {
             throw new \RuntimeException("User '{$username}' already exists.");
         }
 
         $insert = $this->pdo->prepare(
-            'INSERT INTO app_users (username, password_hash, role, is_active) VALUES (:u, :p, :r, 1)'
+            "INSERT INTO {$appUsers} (username, password_hash, role, is_active) VALUES (:u, :p, :r, 1)"
         );
         try {
             $insert->execute([

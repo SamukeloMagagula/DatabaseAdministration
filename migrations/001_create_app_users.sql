@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS app_users (
+CREATE TABLE IF NOT EXISTS {{app_schema}}.app_users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(64) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,

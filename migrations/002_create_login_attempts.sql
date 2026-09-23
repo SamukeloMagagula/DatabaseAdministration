@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS login_attempts (
+CREATE TABLE IF NOT EXISTS {{app_schema}}.login_attempts (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     identifier VARCHAR(191) NOT NULL,
     succeeded TINYINT(1) NOT NULL,

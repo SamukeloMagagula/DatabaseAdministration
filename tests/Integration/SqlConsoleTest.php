@@ -4,6 +4,7 @@ namespace Tests\Integration;
 
 use App\AuditLog;
 use App\Controllers\SqlConsoleController;
+use App\Csrf;
 use App\Database;
 use App\Roles;
 use PHPUnit\Framework\TestCase;
@@ -19,12 +20,19 @@ final class SqlConsoleTest extends TestCase
         $this->pdo->exec('CREATE DATABASE wbtest_fixture');
         $this->pdo->exec('CREATE TABLE wbtest_fixture.widgets (id INT PRIMARY KEY, name VARCHAR(50))');
         $this->pdo->exec("INSERT INTO wbtest_fixture.widgets VALUES (1, 'bolt')");
-        $this->pdo->exec('TRUNCATE TABLE audit_log');
+        // The shared connection has no default database, so the app's own
+        // tables must be named with their schema here too.
+        $this->pdo->exec('TRUNCATE TABLE ' . Database::appTable('audit_log'));
+
+        $_SESSION = [];
+        $_POST = [];
     }
 
     protected function tearDown(): void
     {
         $this->pdo->exec('DROP DATABASE IF EXISTS wbtest_fixture');
+        $_SESSION = [];
+        $_POST = [];
     }
 
     public function test_viewer_can_run_select(): void
@@ -98,5 +106,116 @@ final class SqlConsoleTest extends TestCase
         $result = $console->runStatement('', Roles::ADMIN, 1, 'admin1');
 
         $this->assertFalse($result['ok']);
+    }
+
+    public function test_viewer_cannot_bypass_role_gate_with_unrecognized_statement(): void
+    {
+        $console = new SqlConsoleController();
+
+        $result = $console->runStatement(
+            "REPLACE INTO wbtest_fixture.widgets VALUES (99, 'pwned')",
+            Roles::VIEWER,
+            1,
+            'vic'
+        );
+
+        $this->assertFalse($result['ok']);
+        $smuggled = (int) $this->pdo->query('SELECT COUNT(*) FROM wbtest_fixture.widgets WHERE id = 99')->fetchColumn();
+        $this->assertSame(0, $smuggled);
+    }
+
+    public function test_stacked_statement_does_not_execute_second_statement(): void
+    {
+        $console = new SqlConsoleController();
+
+        $result = $console->runStatement(
+            'SELECT 1; DROP TABLE wbtest_fixture.widgets;',
+            Roles::ADMIN,
+            1,
+            'admin1'
+        );
+
+        $this->assertFalse($result['ok']);
+        $stillThere = (int) $this->pdo->query(
+            "SELECT COUNT(*) FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = 'wbtest_fixture' AND TABLE_NAME = 'widgets'"
+        )->fetchColumn();
+        $this->assertSame(1, $stillThere);
+    }
+
+    public function test_non_admin_cannot_name_the_app_schema(): void
+    {
+        $console = new SqlConsoleController();
+        $appSchema = Database::appSchemaName();
+
+        $result = $console->runStatement(
+            "UPDATE `{$appSchema}`.app_users SET role = 'admin' WHERE username = 'ed'",
+            Roles::EDITOR,
+            1,
+            'ed'
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('restricted schema', $result['error']);
+        $entries = (new AuditLog($this->pdo))->recent();
+        $this->assertSame('SQL_REJECTED', $entries[0]['action_type']);
+    }
+
+    public function test_unqualified_statement_cannot_reach_the_app_schema(): void
+    {
+        $console = new SqlConsoleController();
+
+        // The shared connection has no default database, so an unqualified
+        // table name resolves to nothing rather than to the app's own schema.
+        $result = $console->runStatement(
+            "UPDATE app_users SET role = 'admin' WHERE username = 'ed'",
+            Roles::EDITOR,
+            1,
+            'ed'
+        );
+
+        $this->assertFalse($result['ok']);
+        $entries = (new AuditLog($this->pdo))->recent();
+        $this->assertSame('SQL_ERROR', $entries[0]['action_type']);
+    }
+
+    public function test_execute_action_rejects_bad_csrf_token(): void
+    {
+        $_SESSION = ['user_id' => 1, 'username' => 'admin1', 'role' => 'admin'];
+        Csrf::token();
+        $_POST = ['csrf_token' => 'wrong', 'sql' => "INSERT INTO wbtest_fixture.widgets VALUES (2, 'nail')"];
+        $console = new SqlConsoleController();
+
+        $html = $console->execute();
+
+        $this->assertStringContainsString('Invalid form submission', $html);
+        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM wbtest_fixture.widgets')->fetchColumn();
+        $this->assertSame(1, $count);
+        $this->assertCount(0, (new AuditLog($this->pdo))->recent());
+    }
+
+    public function test_execute_action_rejects_missing_csrf_token(): void
+    {
+        $_SESSION = ['user_id' => 1, 'username' => 'admin1', 'role' => 'admin'];
+        $_POST = ['sql' => "INSERT INTO wbtest_fixture.widgets VALUES (2, 'nail')"];
+        $console = new SqlConsoleController();
+
+        $html = $console->execute();
+
+        $this->assertStringContainsString('Invalid form submission', $html);
+        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM wbtest_fixture.widgets')->fetchColumn();
+        $this->assertSame(1, $count);
+    }
+
+    public function test_execute_action_runs_the_statement_with_a_valid_token(): void
+    {
+        $_SESSION = ['user_id' => 1, 'username' => 'admin1', 'role' => 'admin'];
+        $_POST = ['csrf_token' => Csrf::token(), 'sql' => "INSERT INTO wbtest_fixture.widgets VALUES (2, 'nail')"];
+        $console = new SqlConsoleController();
+
+        $console->execute();
+
+        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM wbtest_fixture.widgets')->fetchColumn();
+        $this->assertSame(2, $count);
     }
 }

@@ -21,6 +21,12 @@ already has MariaDB installed, with the app running on the same box.
     FLUSH PRIVILEGES;
     SQL
 
+The service account needs full rights on `dbwebui_app` to maintain the app's own
+tables, but that schema is never reachable through the UI: the table browser
+rejects it like a nonexistent database, the shared PDO connection has no default
+database (so an unqualified console statement cannot land on it), and non-admins
+cannot name it explicitly in the SQL console.
+
 ## 3. Deploy the application code
 
     sudo mkdir -p /var/www/dbwebui
@@ -29,6 +35,22 @@ already has MariaDB installed, with the app running on the same box.
     composer install --no-dev --optimize-autoloader
     sudo useradd --system --no-create-home dbwebui
     sudo chown -R dbwebui:dbwebui /var/www/dbwebui
+
+Create the PHP session directory. The pool runs as `dbwebui`, which cannot
+write to RHEL's default `/var/lib/php/session` (owned `root:apache`, mode
+`0770`) — without this step `session_start()` cannot persist anything and
+every login silently bounces back to `/login`. The matching
+`session.save_path` is already set in `deploy/php-fpm-pool.conf.example`.
+
+    sudo mkdir -p /var/lib/dbwebui/session
+    sudo chown dbwebui:dbwebui /var/lib/dbwebui/session
+    sudo chmod 700 /var/lib/dbwebui/session
+
+SELinux is enforcing by default on a fresh RHEL-family box, so relabel the new
+directory with `sudo restorecon -R /var/lib/dbwebui` (and `-R /var/www/dbwebui`
+if you copied the code in rather than cloning it in place). If you configure
+`DB_HOST` as a TCP host instead of the local socket, also run
+`sudo setsebool -P httpd_can_network_connect_db 1`.
 
 ## 4. Configure the app
 

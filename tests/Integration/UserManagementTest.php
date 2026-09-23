@@ -11,12 +11,16 @@ use PHPUnit\Framework\TestCase;
 final class UserManagementTest extends TestCase
 {
     private \PDO $pdo;
+    private string $appUsers;
 
     protected function setUp(): void
     {
         $this->pdo = Database::connection();
-        $this->pdo->exec('TRUNCATE TABLE app_users');
-        $this->pdo->exec('TRUNCATE TABLE audit_log');
+        // The shared connection has no default database, so the app's own
+        // tables must be named with their schema here too.
+        $this->appUsers = Database::appTable('app_users');
+        $this->pdo->exec("TRUNCATE TABLE {$this->appUsers}");
+        $this->pdo->exec('TRUNCATE TABLE ' . Database::appTable('audit_log'));
         $_SESSION = ['user_id' => 1, 'username' => 'admin1', 'role' => 'admin'];
         $_POST = [];
         $_GET = [];
@@ -35,7 +39,7 @@ final class UserManagementTest extends TestCase
 
         $controller->createUser('bob', 'secret123', 'editor', 1, 'admin1');
 
-        $row = $this->pdo->query("SELECT * FROM app_users WHERE username = 'bob'")->fetch();
+        $row = $this->pdo->query("SELECT * FROM {$this->appUsers} WHERE username = 'bob'")->fetch();
         $this->assertNotFalse($row);
         $this->assertTrue(password_verify('secret123', $row['password_hash']));
         $this->assertSame('editor', $row['role']);
@@ -48,11 +52,11 @@ final class UserManagementTest extends TestCase
     {
         $controller = new UserController();
         $controller->createUser('bob', 'secret123', 'viewer', 1, 'admin1');
-        $userId = (int) $this->pdo->query("SELECT id FROM app_users WHERE username = 'bob'")->fetchColumn();
+        $userId = (int) $this->pdo->query("SELECT id FROM {$this->appUsers} WHERE username = 'bob'")->fetchColumn();
 
         $controller->setRole($userId, 'admin', 1, 'admin1');
 
-        $role = $this->pdo->query("SELECT role FROM app_users WHERE id = {$userId}")->fetchColumn();
+        $role = $this->pdo->query("SELECT role FROM {$this->appUsers} WHERE id = {$userId}")->fetchColumn();
         $this->assertSame('admin', $role);
     }
 
@@ -60,11 +64,11 @@ final class UserManagementTest extends TestCase
     {
         $controller = new UserController();
         $controller->createUser('bob', 'secret123', 'viewer', 1, 'admin1');
-        $userId = (int) $this->pdo->query("SELECT id FROM app_users WHERE username = 'bob'")->fetchColumn();
+        $userId = (int) $this->pdo->query("SELECT id FROM {$this->appUsers} WHERE username = 'bob'")->fetchColumn();
 
         $controller->setActiveState($userId, false, 1, 'admin1');
 
-        $active = (int) $this->pdo->query("SELECT is_active FROM app_users WHERE id = {$userId}")->fetchColumn();
+        $active = (int) $this->pdo->query("SELECT is_active FROM {$this->appUsers} WHERE id = {$userId}")->fetchColumn();
         $this->assertSame(0, $active);
     }
 
@@ -76,7 +80,7 @@ final class UserManagementTest extends TestCase
 
         $controller->create();
 
-        $count = (int) $this->pdo->query("SELECT COUNT(*) FROM app_users WHERE username = 'bob'")->fetchColumn();
+        $count = (int) $this->pdo->query("SELECT COUNT(*) FROM {$this->appUsers} WHERE username = 'bob'")->fetchColumn();
         $this->assertSame(1, $count);
     }
 
@@ -88,7 +92,7 @@ final class UserManagementTest extends TestCase
 
         $controller->create();
 
-        $count = (int) $this->pdo->query("SELECT COUNT(*) FROM app_users WHERE username = 'carol'")->fetchColumn();
+        $count = (int) $this->pdo->query("SELECT COUNT(*) FROM {$this->appUsers} WHERE username = 'carol'")->fetchColumn();
         $this->assertSame(0, $count);
     }
 

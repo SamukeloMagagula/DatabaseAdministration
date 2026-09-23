@@ -20,6 +20,10 @@ final class Router
             $regex = $this->compile($route['pattern']);
             if (preg_match($regex, $path, $matches)) {
                 $params = array_filter($matches, fn($key) => !is_int($key), ARRAY_FILTER_USE_KEY);
+                // Single decode point for the whole app: path segments arrive
+                // percent-encoded (views build them with rawurlencode()), so a
+                // db/table/PK value containing a space, '/', '%' or '#' round-trips.
+                $params = array_map('rawurldecode', $params);
                 return ['handler' => $route['handler'], 'params' => $params];
             }
         }

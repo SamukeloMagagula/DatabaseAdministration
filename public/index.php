@@ -18,6 +18,23 @@ session_start([
     'cookie_secure' => true,
 ]);
 
+// Registered before the config is read and before the controllers are
+// constructed, so that a missing .env or a failure to connect to MariaDB (whose
+// exception carries the DB password in its stack frame arguments) is logged
+// rather than rendered to the browser. The error views need no config.
+set_exception_handler(function (\Throwable $e): void {
+    error_log((string) $e);
+
+    if ($e instanceof \InvalidArgumentException) {
+        http_response_code(404);
+        echo View::render('error_404', [], null);
+        return;
+    }
+
+    http_response_code(500);
+    echo View::render('error_500', [], null);
+});
+
 Config::load(__DIR__ . '/../.env');
 
 $router = new Router();

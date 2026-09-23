@@ -7,6 +7,17 @@ use PHPUnit\Framework\TestCase;
 
 final class ConfigTest extends TestCase
 {
+    /**
+     * These tests deliberately point Config at throwaway files. Unit tests run
+     * in the same process as (and before) the Integration suite, so the real
+     * test config has to be restored — otherwise every later test that reads
+     * DB_APP_SCHEMA silently falls back to the built-in default.
+     */
+    protected function tearDown(): void
+    {
+        Config::load(dirname(__DIR__, 2) . '/.env.testing');
+    }
+
     public function test_load_reads_key_value_pairs_from_file(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'env');

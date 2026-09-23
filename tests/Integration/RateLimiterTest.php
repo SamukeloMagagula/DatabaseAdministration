@@ -10,7 +10,9 @@ final class RateLimiterTest extends TestCase
 {
     protected function setUp(): void
     {
-        Database::connection()->exec('TRUNCATE TABLE login_attempts');
+        // The shared connection has no default database, so the app's own
+        // tables must be named with their schema here too.
+        Database::connection()->exec('TRUNCATE TABLE ' . Database::appTable('login_attempts'));
     }
 
     public function test_not_locked_out_before_five_failures(): void

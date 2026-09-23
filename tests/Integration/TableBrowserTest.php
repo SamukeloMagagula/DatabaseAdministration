@@ -71,7 +71,27 @@ final class TableBrowserTest extends TestCase
 
         $this->assertStringNotContainsString('>mysql<', $html);
         $this->assertStringNotContainsString('>information_schema<', $html);
+        // Asserted against the actually-configured schema, not a literal, so
+        // deleting the exclusion cannot leave this test passing.
+        $appSchema = \App\Config::get('DB_APP_SCHEMA', 'dbwebui_app');
+        $this->assertStringNotContainsString('>' . $appSchema . '<', $html);
         $this->assertStringContainsString('wbtest_fixture', $html);
+    }
+
+    public function test_the_app_schema_is_not_browsable_through_the_grid(): void
+    {
+        $controller = new TableController();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $controller->listTables(\App\Config::get('DB_APP_SCHEMA', 'dbwebui_app'));
+    }
+
+    public function test_the_app_schema_tables_cannot_be_read_through_the_grid(): void
+    {
+        $controller = new TableController();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $controller->columns(\App\Config::get('DB_APP_SCHEMA', 'dbwebui_app'), 'app_users');
     }
 
     public function test_list_for_database_renders_table_names(): void

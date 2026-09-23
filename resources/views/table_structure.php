@@ -14,4 +14,4 @@
 <?php endforeach; ?>
 </tbody>
 </table>
-<p><a href="/db/<?= \App\View::e($db) ?>/table/<?= \App\View::e($table) ?>">View data</a></p>
+<p><a href="/db/<?= \App\View::e(rawurlencode($db)) ?>/table/<?= \App\View::e(rawurlencode($table)) ?>">View data</a></p>

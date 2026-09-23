@@ -25,7 +25,9 @@ final class TableDataMutationTest extends TestCase
             )'
         );
         $this->pdo->exec("INSERT INTO wbtest_fixture.widgets (name, quantity) VALUES ('bolt', 10)");
-        $this->pdo->exec('TRUNCATE TABLE audit_log');
+        // The shared connection has no default database, so the app's own
+        // tables must be named with their schema here too.
+        $this->pdo->exec('TRUNCATE TABLE ' . Database::appTable('audit_log'));
 
         $_SESSION = [];
         $_POST = [];
@@ -94,6 +96,24 @@ final class TableDataMutationTest extends TestCase
 
         $entries = (new AuditLog($this->pdo))->recent();
         $this->assertSame('ROW_DELETE', $entries[0]['action_type']);
+    }
+
+    public function test_insert_and_update_work_on_columns_whose_names_are_not_valid_placeholders(): void
+    {
+        $this->pdo->exec(
+            'CREATE TABLE wbtest_fixture.odd (
+                `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `order-date` VARCHAR(20) NOT NULL,
+                `first name` VARCHAR(20) NOT NULL
+            )'
+        );
+        $controller = new TableController();
+
+        $controller->insertRow('wbtest_fixture', 'odd', ['order-date' => '2026-01-01', 'first name' => 'ada'], 1, 'alice');
+        $this->assertSame('ada', $controller->findRow('wbtest_fixture', 'odd', 'id', 1)['first name']);
+
+        $controller->updateRowData('wbtest_fixture', 'odd', 'id', 1, ['first name' => 'bob'], 1, 'alice');
+        $this->assertSame('bob', $controller->findRow('wbtest_fixture', 'odd', 'id', 1)['first name']);
     }
 
     public function test_create_row_action_requires_editor_or_admin_role(): void

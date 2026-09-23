@@ -10,20 +10,24 @@ final class Auth
     {
     }
 
-    public function attemptLogin(string $username, string $password): array
+    public function attemptLogin(string $username, string $password, string $ip = ''): array
     {
-        if ($this->rateLimiter->isLockedOut($username)) {
+        if ($this->rateLimiter->isLockedOut($username) || ($ip !== '' && $this->rateLimiter->isLockedOut('ip:' . $ip))) {
             return ['success' => false, 'error' => 'locked_out'];
         }
 
+        $appUsers = Database::appTable('app_users');
         $stmt = $this->pdo->prepare(
-            'SELECT id, username, password_hash, role, is_active FROM app_users WHERE username = :u'
+            "SELECT id, username, password_hash, role, is_active FROM {$appUsers} WHERE username = :u"
         );
         $stmt->execute(['u' => $username]);
         $user = $stmt->fetch();
 
         $valid = $user && (bool) $user['is_active'] && password_verify($password, $user['password_hash']);
         $this->rateLimiter->recordAttempt($username, $valid);
+        if ($ip !== '') {
+            $this->rateLimiter->recordAttempt('ip:' . $ip, $valid);
+        }
 
         if (!$valid) {
             return ['success' => false, 'error' => 'invalid_credentials'];
