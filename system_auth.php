@@ -14,7 +14,7 @@ const ROLE_EDITOR_GROUP = 'dbwebui-editor';
 function pam_authenticate(string $username, string $password): bool
 {
     if (!function_exists('pam_auth')) {
-        throw new RuntimeException('The PAM PHP extension is not installed. See docs/DEPLOY.md.');
+        throw new RuntimeException('The PAM PHP extension (PECL pam) is not installed.');
     }
     return pam_auth($username, $password);
 }

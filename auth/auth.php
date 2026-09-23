@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
-session_set_cookie_params(['httponly' => true, 'samesite' => 'Strict', 'secure' => true]);
-session_start();
-
 require_once __DIR__ . '/../settings.php';
+
+session_set_cookie_params([
+    'httponly' => true,
+    'samesite' => 'Strict',
+    'secure' => using_https(),
+]);
+session_start();
 
 function config_failure(string $message): void
 {

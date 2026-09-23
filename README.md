@@ -24,15 +24,18 @@ Every page a browser requests directly is its own file at the repository root; t
 
 ```
 index.php, database.php, table.php,   Pages, request these directly.
-sql.php, status.php, audit_log.php    Each guards itself (require_login()/
-                                       require_role()) and renders a view.
+sql.php, status.php, audit_log.php    Each starts with bootstrap.php, then guards
+                                       itself (require_login()/require_role()).
 
+bootstrap.php                         Session, error handler, and auth helpers shared
+                                       by every page above.
 auth/auth.php                         POST only login/logout endpoint.
 auth/guard.php                        require_login(), require_role(), current_user().
 
-config.php                            DB credentials plus connect(): PDO. Template only,
+config.php.example                    Copy to config.php and fill in real values,
                                        see "Configuration" below.
-settings.php                          Every other constant, overridable by environment.
+settings.php                          Every other constant, overridable by environment,
+                                       plus load_app_config() and using_https().
 system_auth.php                       PAM login and OS group role lookup.
 errors.php, view.php, csrf.php,       Small single purpose libraries, each used by
 roles.php, sql_classifier.php,        more than one page.
@@ -45,10 +48,6 @@ assets/                               Static files (stylesheet).
 
 schema.sql                            This app's own tables. Plain SQL, no migration
                                        runner, see "Database setup" below.
-
-deploy/                               Example Nginx and PHP-FPM configs.
-docs/                                 Deployment runbook.
-tests/                                Custom test runner plus test_*.php files.
 ```
 
 ## Requirements
@@ -62,7 +61,16 @@ Nothing else. No Composer, no build step, no Node.
 
 ## Configuration
 
-The checked in `config.php` is a template with placeholder credentials, not something you edit in place. Copy it somewhere else and point `settings.php`'s `CONFIG_PATH` at it, either by editing the default in `settings.php` or by setting the `DBADMIN_CONFIG` environment variable, which takes priority. In production this file lives outside the web servable tree; see [`docs/DEPLOY.md`](docs/DEPLOY.md).
+Copy `config.php.example` to `config.php` in the same directory and fill in real values there:
+
+```bash
+cp config.php.example config.php
+vi config.php
+```
+
+`config.php` is gitignored, so it is never committed and a later `git pull` never touches it. Everything else on the deployed files is picked up automatically; this is the only file you need to edit per server.
+
+If you would rather keep credentials outside the web servable tree entirely, point `settings.php`'s `CONFIG_PATH` at a different location instead, either by editing the default there or by setting the `DBADMIN_CONFIG` environment variable, which takes priority.
 
 `connect()` (in `config.php`) deliberately opens with no default database. The SQL console lets an editor or viewer run SQL of their own choosing over that same connection, so an unqualified statement must never be able to land on this app's own tables by accident. Every query this app makes against its own tables names the schema explicitly, via `app_table()`.
 
@@ -95,22 +103,6 @@ php -S 127.0.0.1:8080
 ```
 
 Log in at `http://127.0.0.1:8080/index.php` with your local machine's own username and password.
-
-## Running the tests
-
-```bash
-cp tests/config.testing.php.example tests/config.testing.php
-# edit tests/config.testing.php with a disposable MariaDB server's credentials
-php tests/run.php
-```
-
-No Composer, no PHPUnit; `tests/run.php` is a small runner with `test()`/`same()`/`check()`. It creates and owns the `dbwebui_app_test` schema itself by applying `schema.sql`, and several test files also create and drop a throwaway fixture database (`wbtest_fixture`), so the account in `tests/config.testing.php` needs rights to do both.
-
-Pages that guard themselves with `require_login()`/`require_role()` are not covered by the automated suite, since those functions call `exit()` on failure and the test runner has no way to intercept that. What is tested instead is everything those pages call into: the SQL console's role and schema guards, the data grid's SQL, rate limiting, and audit logging, which is where a mistake would actually matter. Treat any change to `auth/auth.php`, `table.php`, `sql.php`, `database.php`, or `status.php` as needing a manual check in a browser in addition to the suite.
-
-## Deployment
-
-See [`docs/DEPLOY.md`](docs/DEPLOY.md) for a full RHEL, Nginx, and PHP-FPM deployment runbook, including the PAM setup, TLS, and firewall configuration.
 
 ## Security notes
 

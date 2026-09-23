@@ -1,5 +1,5 @@
 .worktrees/
 .claude/
-# The checked-in config.php is a template. A real one, wherever CONFIG_PATH
-# (settings.php) points to, is never meant to be committed.
-/tests/config.testing.php
+# config.php.example is the checked-in template. The real config.php holds
+# live credentials and is never meant to be committed.
+/config.php

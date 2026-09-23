@@ -2,21 +2,11 @@
 
 declare(strict_types=1);
 
-session_set_cookie_params(['httponly' => true, 'samesite' => 'Strict', 'secure' => true]);
-session_start();
-
-require_once __DIR__ . '/settings.php';
-require_once __DIR__ . '/errors.php';
-install_error_handler();
-
-require_once __DIR__ . '/auth/guard.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/db_browser.php';
 
 require_login();
-if (!is_readable(CONFIG_PATH)) {
-    throw new RuntimeException('Cannot read the database config at ' . CONFIG_PATH);
-}
-require CONFIG_PATH;
+load_app_config();
 
 echo render('status', [
     'user' => current_user(),

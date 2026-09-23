@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-// Template only. In production the real credentials live at the path
-// CONFIG_PATH points to (settings.php), outside the served tree, so this
-// checked-in copy is never the one actually loaded.
+// Template only. Copy this file to config.php in the same directory and
+// fill in real values there; config.php is gitignored, so it is never
+// committed and a later `git pull` never touches it.
 const DB_HOST = '127.0.0.1';
 const DB_PORT = '3306';
 const DB_USER = 'dbwebui_svc';
