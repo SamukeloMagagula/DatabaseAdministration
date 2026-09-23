@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(400);
         $result = ['ok' => false, 'error' => 'Invalid form submission, please try again.'];
     } else {
-        $result = run_sql_statement(connect(), $sql, $user['role'], $user['id'], $user['username']);
+        $result = run_sql_statement(connect(), $sql, $user['role'], $user['username']);
     }
 }
 

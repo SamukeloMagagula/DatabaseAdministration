@@ -2,23 +2,12 @@
 
 declare(strict_types=1);
 
-/**
- * Login throttling, kept separate from auth.php rather than inlined into it.
- *
- * Most of this app's action scripts hold their logic inline, on the reasoning
- * that a file with one caller does not need its own module. This is the
- * exception: which failures count as "consecutive," and counting them on both
- * the username and the IP, are exactly the kind of decision that is easy to
- * get subtly wrong and where being wrong announces itself to nobody — so it
- * gets to be a pure function with tests of its own, the same reasoning
- * permissions.php gives for staying out of api.php.
- */
+// Login throttling, kept separate from auth/auth.php so the "consecutive
+// failures" logic is a pure function with tests of its own rather than
+// buried inline where a subtle mistake would go unnoticed.
 
-/**
- * True once $identifier has LOGIN_MAX_ATTEMPTS failures that are both inside
- * the lockout window AND newer than its most recent success — i.e.
- * *consecutive* failures. A successful login resets the streak.
- */
+// True once $identifier has LOGIN_MAX_ATTEMPTS failures inside the lockout
+// window that are newer than its most recent success, i.e. consecutive.
 function login_locked_out(PDO $pdo, string $identifier): bool
 {
     $attempts = app_table('login_attempts');

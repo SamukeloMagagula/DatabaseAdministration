@@ -65,8 +65,8 @@ test('this app\'s own schema is not browsable through the grid, even by name', f
         list_tables(test_pdo(), DB_APP_SCHEMA);
         check(false, 'expected InvalidArgumentException');
     } catch (InvalidArgumentException $e) {
-        // expected — this is the check that closed the privilege-escalation
-        // path where an editor could reach app_users through the grid.
+        // expected — closes the path where an editor could reach this app's
+        // own tables through the grid.
     }
 });
 
@@ -79,4 +79,14 @@ test('this app\'s own schema is rejected case-insensitively', function (): void 
     } catch (InvalidArgumentException $e) {
         // expected
     }
+});
+
+test('valid_new_database_name accepts letters, numbers and underscores', function (): void {
+    check(valid_new_database_name('shop_copy_2'), 'expected a valid name to pass');
+});
+
+test('valid_new_database_name rejects anything else, including this app\'s own schema', function (): void {
+    check(!valid_new_database_name('shop-copy'), 'a hyphen should not be allowed');
+    check(!valid_new_database_name('shop copy'), 'a space should not be allowed');
+    check(!valid_new_database_name(DB_APP_SCHEMA), 'this app\'s own schema name should not be allowed');
 });

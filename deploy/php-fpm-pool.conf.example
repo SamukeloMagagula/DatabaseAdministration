@@ -11,9 +11,9 @@ pm.min_spare_servers = 1
 pm.max_spare_servers = 4
 
 ; RHEL's default session directory (/var/lib/php/session) is root:apache 0770,
-; which the dbwebui pool user cannot write to — sessions would silently fail to
-; persist and every login would bounce straight back to /login. Point the pool
-; at its own directory instead (created in DEPLOY.md step 3).
+; which the dbwebui pool user cannot write to — sessions would silently fail
+; to persist and every login would bounce straight back to the sign in page.
+; Point the pool at its own directory instead (created in DEPLOY.md step 5).
 php_admin_value[session.save_path] = /var/lib/dbwebui/session
 
 ; Never render PHP errors or exception traces to the browser; a PDO connection

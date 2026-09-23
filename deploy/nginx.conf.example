@@ -6,11 +6,9 @@ server {
     ssl_certificate_key /etc/pki/tls/private/dbwebui.key;
 
     # This app has no front controller — index.php, table.php, sql.php and the
-    # rest are each requested directly, the same way api.php/auth.php/index.php
-    # are in the app this deployment style is modelled on. The document root is
-    # the app's own checkout; only the directories with no business being
-    # web-facing (tests, cli, docs, the real config.php's example, git/editor
-    # metadata) are explicitly denied below.
+    # rest are each requested directly. The document root is the app's own
+    # checkout; only the directories with no business being web-facing
+    # (tests, docs, git/editor metadata) are explicitly denied below.
     root /var/www/dbwebui;
     index index.php;
 
@@ -26,7 +24,6 @@ server {
     }
 
     location ^~ /tests/     { deny all; }
-    location ^~ /cli/       { deny all; }
     location ^~ /docs/      { deny all; }
     location ~ \.sql$       { deny all; }
     location ~ /\.(?!well-known) { deny all; }

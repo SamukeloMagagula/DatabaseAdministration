@@ -18,7 +18,7 @@ function teardown_console_fixture(): void
 
 test('viewer can run SELECT', function (): void {
     setup_console_fixture();
-    $result = run_sql_statement(test_pdo(), 'SELECT * FROM wbtest_fixture.widgets', ROLE_VIEWER, 1, 'vic');
+    $result = run_sql_statement(test_pdo(), 'SELECT * FROM wbtest_fixture.widgets', ROLE_VIEWER, 'vic');
     same(true, $result['ok']);
     same(1, $result['rowCount']);
     teardown_console_fixture();
@@ -26,7 +26,7 @@ test('viewer can run SELECT', function (): void {
 
 test('viewer cannot run INSERT', function (): void {
     setup_console_fixture();
-    $result = run_sql_statement(test_pdo(), "INSERT INTO wbtest_fixture.widgets VALUES (2, 'nail')", ROLE_VIEWER, 1, 'vic');
+    $result = run_sql_statement(test_pdo(), "INSERT INTO wbtest_fixture.widgets VALUES (2, 'nail')", ROLE_VIEWER, 'vic');
     same(false, $result['ok']);
     check(str_contains($result['error'], 'INSERT'), 'error should mention INSERT');
     teardown_console_fixture();
@@ -34,25 +34,25 @@ test('viewer cannot run INSERT', function (): void {
 
 test('editor can run INSERT but not DDL', function (): void {
     setup_console_fixture();
-    $insert = run_sql_statement(test_pdo(), "INSERT INTO wbtest_fixture.widgets VALUES (2, 'nail')", ROLE_EDITOR, 1, 'ed');
+    $insert = run_sql_statement(test_pdo(), "INSERT INTO wbtest_fixture.widgets VALUES (2, 'nail')", ROLE_EDITOR, 'ed');
     same(true, $insert['ok']);
 
-    $ddl = run_sql_statement(test_pdo(), 'DROP TABLE wbtest_fixture.widgets', ROLE_EDITOR, 1, 'ed');
+    $ddl = run_sql_statement(test_pdo(), 'DROP TABLE wbtest_fixture.widgets', ROLE_EDITOR, 'ed');
     same(false, $ddl['ok']);
     teardown_console_fixture();
 });
 
 test('admin can run DDL', function (): void {
     setup_console_fixture();
-    $result = run_sql_statement(test_pdo(), 'ALTER TABLE wbtest_fixture.widgets ADD COLUMN qty INT', ROLE_ADMIN, 1, 'admin1');
+    $result = run_sql_statement(test_pdo(), 'ALTER TABLE wbtest_fixture.widgets ADD COLUMN qty INT', ROLE_ADMIN, 'admin1');
     same(true, $result['ok']);
     teardown_console_fixture();
 });
 
 test('every execution is audited, including a rejection', function (): void {
     setup_console_fixture();
-    run_sql_statement(test_pdo(), 'SELECT * FROM wbtest_fixture.widgets', ROLE_VIEWER, 1, 'vic');
-    run_sql_statement(test_pdo(), 'DELETE FROM wbtest_fixture.widgets', ROLE_VIEWER, 1, 'vic');
+    run_sql_statement(test_pdo(), 'SELECT * FROM wbtest_fixture.widgets', ROLE_VIEWER, 'vic');
+    run_sql_statement(test_pdo(), 'DELETE FROM wbtest_fixture.widgets', ROLE_VIEWER, 'vic');
 
     $entries = audit_recent(test_pdo());
     check(count($entries) === 2, 'expected 2 audit entries');
@@ -63,7 +63,7 @@ test('every execution is audited, including a rejection', function (): void {
 
 test('a SQL error is caught and audited rather than crashing', function (): void {
     setup_console_fixture();
-    $result = run_sql_statement(test_pdo(), 'SELECT * FROM wbtest_fixture.no_such_table', ROLE_ADMIN, 1, 'admin1');
+    $result = run_sql_statement(test_pdo(), 'SELECT * FROM wbtest_fixture.no_such_table', ROLE_ADMIN, 'admin1');
     same(false, $result['ok']);
     $entries = audit_recent(test_pdo());
     same('SQL_ERROR', $entries[0]['action_type']);
@@ -71,7 +71,7 @@ test('a SQL error is caught and audited rather than crashing', function (): void
 });
 
 test('an empty statement is rejected without touching the database', function (): void {
-    $result = run_sql_statement(test_pdo(), '', ROLE_ADMIN, 1, 'admin1');
+    $result = run_sql_statement(test_pdo(), '', ROLE_ADMIN, 'admin1');
     same(false, $result['ok']);
 });
 
@@ -79,7 +79,7 @@ test('a viewer cannot bypass the role gate with an unrecognised statement', func
     setup_console_fixture();
     // REPLACE INTO is a real mutation classify_sql() has no keyword for — the
     // exact bug role_can_run_statement()'s OTHER-requires-admin rule closed.
-    $result = run_sql_statement(test_pdo(), "REPLACE INTO wbtest_fixture.widgets VALUES (99, 'pwned')", ROLE_VIEWER, 1, 'vic');
+    $result = run_sql_statement(test_pdo(), "REPLACE INTO wbtest_fixture.widgets VALUES (99, 'pwned')", ROLE_VIEWER, 'vic');
     same(false, $result['ok']);
     $smuggled = (int) test_pdo()->query('SELECT COUNT(*) FROM wbtest_fixture.widgets WHERE id = 99')->fetchColumn();
     same(0, $smuggled);
@@ -88,7 +88,7 @@ test('a viewer cannot bypass the role gate with an unrecognised statement', func
 
 test('a stacked statement does not execute its second half', function (): void {
     setup_console_fixture();
-    $result = run_sql_statement(test_pdo(), 'SELECT 1; DROP TABLE wbtest_fixture.widgets;', ROLE_ADMIN, 1, 'admin1');
+    $result = run_sql_statement(test_pdo(), 'SELECT 1; DROP TABLE wbtest_fixture.widgets;', ROLE_ADMIN, 'admin1');
     same(false, $result['ok']);
     $stillThere = (int) test_pdo()->query(
         "SELECT COUNT(*) FROM information_schema.TABLES
@@ -104,7 +104,6 @@ test('a non-admin cannot name this app\'s own schema', function (): void {
         test_pdo(),
         "UPDATE `" . DB_APP_SCHEMA . "`.app_users SET role = 'admin' WHERE username = 'ed'",
         ROLE_EDITOR,
-        1,
         'ed'
     );
     same(false, $result['ok']);
@@ -122,7 +121,6 @@ test('a non-admin cannot hide the app schema behind a block comment or a line co
         test_pdo(),
         'UPDATE ' . DB_APP_SCHEMA . "/**/.app_users SET role = 'admin' WHERE username = 'ed'",
         ROLE_EDITOR,
-        1,
         'ed'
     );
     same(false, $block['ok']);
@@ -132,7 +130,6 @@ test('a non-admin cannot hide the app schema behind a block comment or a line co
         test_pdo(),
         'UPDATE ' . DB_APP_SCHEMA . " -- x\n.app_users SET role = 'admin' WHERE username = 'ed'",
         ROLE_EDITOR,
-        1,
         'ed'
     );
     same(false, $line['ok']);
@@ -150,7 +147,6 @@ test('a non-admin cannot hide the app schema behind a fake line comment', functi
         test_pdo(),
         'SELECT 1--2 AS x, u.* FROM ' . DB_APP_SCHEMA . '/**/.app_users u',
         ROLE_VIEWER,
-        1,
         'vic'
     );
     same(false, $result['ok']);
@@ -166,7 +162,6 @@ test('a non-admin cannot hide the app schema behind a string literal', function 
         test_pdo(),
         "SELECT '-- x' AS note, u.* FROM " . DB_APP_SCHEMA . '/**/.app_users u',
         ROLE_VIEWER,
-        1,
         'vic'
     );
     same(false, $result['ok']);
@@ -182,7 +177,6 @@ test('a non-admin cannot reach the app schema through an executable comment', fu
         test_pdo(),
         "UPDATE /*!" . DB_APP_SCHEMA . "*/.app_users SET role = 'admin' WHERE username = 'ed'",
         ROLE_EDITOR,
-        1,
         'ed'
     );
     same(false, $result['ok']);
@@ -198,7 +192,6 @@ test('a schema reference inside a string literal earlier in the statement still 
         test_pdo(),
         "UPDATE wbtest_fixture.widgets SET name = '#' WHERE id = (SELECT id FROM " . DB_APP_SCHEMA . '.app_users LIMIT 1)',
         ROLE_EDITOR,
-        1,
         'ed'
     );
     same(false, $result['ok']);
@@ -208,7 +201,7 @@ test('a schema reference inside a string literal earlier in the statement still 
 
 test('a trailing comment does not block a legitimate statement', function (): void {
     setup_console_fixture();
-    $result = run_sql_statement(test_pdo(), "SELECT * FROM wbtest_fixture.widgets -- just a note\n", ROLE_VIEWER, 1, 'vic');
+    $result = run_sql_statement(test_pdo(), "SELECT * FROM wbtest_fixture.widgets -- just a note\n", ROLE_VIEWER, 'vic');
     same(true, $result['ok']);
     same(1, $result['rowCount']);
     teardown_console_fixture();
@@ -216,7 +209,7 @@ test('a trailing comment does not block a legitimate statement', function (): vo
 
 test('an unqualified statement cannot reach the app schema (no default database)', function (): void {
     setup_console_fixture();
-    $result = run_sql_statement(test_pdo(), "UPDATE app_users SET role = 'admin' WHERE username = 'ed'", ROLE_EDITOR, 1, 'ed');
+    $result = run_sql_statement(test_pdo(), "UPDATE app_users SET role = 'admin' WHERE username = 'ed'", ROLE_EDITOR, 'ed');
     same(false, $result['ok']);
     $entries = audit_recent(test_pdo());
     same('SQL_ERROR', $entries[0]['action_type']);

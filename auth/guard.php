@@ -5,14 +5,13 @@ declare(strict_types=1);
 require_once __DIR__ . '/../settings.php';
 require_once __DIR__ . '/../view.php';
 
-/** The signed-in visitor's id/username/role, or null when nobody is signed in. */
+/** The signed-in visitor's username/role, or null when nobody is signed in. */
 function current_user(): ?array
 {
-    if (empty($_SESSION['user_id'])) {
+    if (empty($_SESSION['username'])) {
         return null;
     }
     return [
-        'id' => (int) $_SESSION['user_id'],
         'username' => (string) $_SESSION['username'],
         'role' => (string) $_SESSION['role'],
     ];

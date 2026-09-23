@@ -2,14 +2,9 @@
 
 declare(strict_types=1);
 
-/**
- * What kind of statement is this, for the purpose of role_can_run_statement()?
- *
- * A heuristic on the leading keyword, not a parser — good enough to route a
- * statement to the right permission bucket, not to be trusted as a security
- * boundary on its own. sql_console.php's app-schema guard exists precisely
- * because this classifier cannot see everything a statement does.
- */
+// Classifies a statement's leading keyword for role_can_run_statement(). A
+// heuristic, not a parser, so sql_console.php's app-schema guard exists
+// separately rather than relying on this alone.
 
 const SQL_DML_KEYWORDS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE'];
 const SQL_DDL_KEYWORDS = ['CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME'];

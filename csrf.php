@@ -2,17 +2,9 @@
 
 declare(strict_types=1);
 
-/**
- * Cross-site request forgery tokens.
- *
- * The session cookie is SameSite=Strict, which already blocks cross-site
- * POSTs on current browsers — but it is the only thing doing so. One changed
- * cookie attribute, one browser that treats Strict differently, and every
- * state-changing endpoint in the app is forgeable. This is the second lock.
- *
- * The token lives in the session, so every form on an authenticated page can
- * read it straight from $_SESSION without a round trip.
- */
+// Cross-site request forgery tokens. SameSite=Strict already blocks
+// cross-site POSTs on current browsers, but this is the second lock in case
+// that ever isn't true for a given cookie or browser.
 
 /** The session's token, minted on first use. */
 function csrf_token(): string

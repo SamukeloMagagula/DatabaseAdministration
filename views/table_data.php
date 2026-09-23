@@ -2,6 +2,8 @@
 <h1><?= e($db) ?>.<?= e($table) ?></h1>
 <p>
     <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=structure">View structure</a>
+    | <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=export_csv">Export CSV</a>
+    | <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=print" target="_blank">Print / Save as PDF</a>
     <?php if (in_array($user['role'], [ROLE_EDITOR, ROLE_ADMIN], true)): ?>
         | <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=new">Insert row</a>
     <?php endif; ?>

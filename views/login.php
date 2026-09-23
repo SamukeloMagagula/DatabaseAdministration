@@ -4,6 +4,7 @@
 <body>
 <main class="login-page">
 <h1>Database Administration</h1>
+<p>Use your server login, the same username and password you use over SSH.</p>
 <?php if ($error): ?><p class="error"><?= e($error) ?></p><?php endif; ?>
 <form method="post" action="/auth/auth.php">
     <input type="hidden" name="action" value="login">

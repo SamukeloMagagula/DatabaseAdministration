@@ -9,8 +9,8 @@
 <nav class="topnav">
     <a href="/index.php">Databases</a>
     <a href="/sql.php">SQL Console</a>
+    <a href="/status.php">Status</a>
     <?php if (($user['role'] ?? null) === ROLE_ADMIN): ?>
-        <a href="/manage_users.php">Users</a>
         <a href="/audit_log.php">Audit Log</a>
     <?php endif; ?>
     <span class="topnav-user">

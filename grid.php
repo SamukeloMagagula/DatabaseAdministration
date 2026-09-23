@@ -2,37 +2,20 @@
 
 declare(strict_types=1);
 
-/**
- * The data grid: listing, inserting, updating and deleting rows in a
- * visitor-chosen table.
- *
- * $db and $table are trusted here — every entry point calls
- * assert_valid_table() (db_browser.php) first — but column names still come
- * from information_schema, never from $_GET/$_POST directly, and every value
- * is bound. See list_rows()'s placeholder-naming note for the one place that
- * is not obvious.
- */
+// The data grid: list, insert, update, delete rows in a chosen table.
+// $db/$table are checked via assert_valid_table() before every query.
+// Column names come only from information_schema, values are always bound.
 
 require_once __DIR__ . '/db_browser.php';
 require_once __DIR__ . '/audit.php';
 
-/** One page of rows, optionally sorted and filtered. */
-function list_rows(
-    PDO $pdo,
-    string $db,
-    string $table,
-    int $page,
-    int $pageSize,
-    ?string $sortColumn,
-    string $sortDir,
-    array $filters
-): array {
+function list_rows(PDO $pdo, string $db, string $table, int $page, int $pageSize, ?string $sortColumn, string $sortDir, array $filters): array
+{
     assert_valid_table($pdo, $db, $table);
     $validColumns = array_column(table_columns($pdo, $db, $table), 'COLUMN_NAME');
 
-    // Placeholder names are synthetic (filter0, filter1, …) rather than
-    // derived from the column name: a legal column such as `order-date` or
-    // `first name` is not a valid PDO placeholder token.
+    // Placeholder names are synthetic (filter0, filter1, …): a column like
+    // `order-date` isn't a valid PDO placeholder token.
     $where = [];
     $params = [];
     $i = 0;
@@ -72,6 +55,13 @@ function list_rows(
     return ['rows' => $rows, 'total' => (int) $countStmt->fetchColumn(), 'page' => $page, 'pageSize' => $pageSize];
 }
 
+/** All matching rows, ignoring pagination — used by CSV/SQL export. */
+function all_rows(PDO $pdo, string $db, string $table, ?string $sortColumn, string $sortDir, array $filters): array
+{
+    $total = list_rows($pdo, $db, $table, 1, 1, $sortColumn, $sortDir, $filters)['total'];
+    return list_rows($pdo, $db, $table, 1, max(1, $total), $sortColumn, $sortDir, $filters)['rows'];
+}
+
 function find_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkValue): ?array
 {
     assert_valid_table($pdo, $db, $table);
@@ -85,7 +75,7 @@ function find_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkValu
     return $row ?: null;
 }
 
-function insert_row(PDO $pdo, string $db, string $table, array $data, int $userId, string $username): void
+function insert_row(PDO $pdo, string $db, string $table, array $data, string $username): void
 {
     assert_valid_table($pdo, $db, $table);
     $validColumns = array_column(table_columns($pdo, $db, $table), 'COLUMN_NAME');
@@ -94,7 +84,6 @@ function insert_row(PDO $pdo, string $db, string $table, array $data, int $userI
         throw new InvalidArgumentException('No valid columns supplied');
     }
 
-    // Synthetic placeholder names (v0, v1, …) — see the note in list_rows().
     $columns = array_keys($data);
     $placeholders = [];
     $params = [];
@@ -113,10 +102,10 @@ function insert_row(PDO $pdo, string $db, string $table, array $data, int $userI
     );
     $pdo->prepare($sql)->execute($params);
 
-    audit_record($pdo, $userId, $username, 'ROW_INSERT', $db, $table, json_encode($data));
+    audit_record($pdo, $username, 'ROW_INSERT', $db, $table, json_encode($data));
 }
 
-function update_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkValue, array $data, int $userId, string $username): void
+function update_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkValue, array $data, string $username): void
 {
     assert_valid_table($pdo, $db, $table);
     $validColumns = array_column(table_columns($pdo, $db, $table), 'COLUMN_NAME');
@@ -129,9 +118,6 @@ function update_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkVa
         throw new InvalidArgumentException('Invalid primary key column');
     }
 
-    // Synthetic placeholder names (v0, v1, …) — see the note in list_rows().
-    // This also removes the chance of a column literally named `pk_value`
-    // colliding with the WHERE-clause placeholder.
     $setParts = [];
     $params = [];
     $i = 0;
@@ -145,10 +131,10 @@ function update_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkVa
     $sql = sprintf('UPDATE `%s`.`%s` SET %s WHERE `%s` = :pk_value', $db, $table, implode(', ', $setParts), $pkColumn);
     $pdo->prepare($sql)->execute($params);
 
-    audit_record($pdo, $userId, $username, 'ROW_UPDATE', $db, $table, json_encode(['pk' => $pkValue, 'set' => $data]));
+    audit_record($pdo, $username, 'ROW_UPDATE', $db, $table, json_encode(['pk' => $pkValue, 'set' => $data]));
 }
 
-function delete_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkValue, int $userId, string $username): void
+function delete_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkValue, string $username): void
 {
     assert_valid_table($pdo, $db, $table);
     if (!in_array($pkColumn, array_column(table_columns($pdo, $db, $table), 'COLUMN_NAME'), true)) {
@@ -158,5 +144,5 @@ function delete_row(PDO $pdo, string $db, string $table, string $pkColumn, $pkVa
     $pdo->prepare(sprintf('DELETE FROM `%s`.`%s` WHERE `%s` = :pk_value', $db, $table, $pkColumn))
         ->execute(['pk_value' => $pkValue]);
 
-    audit_record($pdo, $userId, $username, 'ROW_DELETE', $db, $table, json_encode(['pk' => $pkValue]));
+    audit_record($pdo, $username, 'ROW_DELETE', $db, $table, json_encode(['pk' => $pkValue]));
 }

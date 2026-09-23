@@ -7,8 +7,8 @@ test_pdo()->exec('TRUNCATE TABLE ' . app_table('audit_log'));
 test('record and recent round trip, most recent first', function (): void {
     test_pdo()->exec('TRUNCATE TABLE ' . app_table('audit_log'));
 
-    audit_record(test_pdo(), 1, 'alice', 'SQL_EXEC', null, null, 'SELECT 1');
-    audit_record(test_pdo(), 2, 'bob', 'ROW_DELETE', 'shop', 'orders', '{"pk":5}');
+    audit_record(test_pdo(), 'alice', 'SQL_EXEC', null, null, 'SELECT 1');
+    audit_record(test_pdo(), 'bob', 'ROW_DELETE', 'shop', 'orders', '{"pk":5}');
 
     $entries = audit_recent(test_pdo());
 
@@ -19,8 +19,8 @@ test('record and recent round trip, most recent first', function (): void {
 
 test('recent filters by username', function (): void {
     test_pdo()->exec('TRUNCATE TABLE ' . app_table('audit_log'));
-    audit_record(test_pdo(), 1, 'alice', 'SQL_EXEC', null, null, 'SELECT 1');
-    audit_record(test_pdo(), 2, 'bob', 'SQL_EXEC', null, null, 'SELECT 2');
+    audit_record(test_pdo(), 'alice', 'SQL_EXEC', null, null, 'SELECT 1');
+    audit_record(test_pdo(), 'bob', 'SQL_EXEC', null, null, 'SELECT 2');
 
     $entries = audit_recent(test_pdo(), 50, 0, 'bob');
 
@@ -31,7 +31,7 @@ test('recent filters by username', function (): void {
 test('recent respects limit and offset', function (): void {
     test_pdo()->exec('TRUNCATE TABLE ' . app_table('audit_log'));
     for ($i = 0; $i < 3; $i++) {
-        audit_record(test_pdo(), 1, 'alice', 'SQL_EXEC', null, null, "SELECT {$i}");
+        audit_record(test_pdo(), 'alice', 'SQL_EXEC', null, null, "SELECT {$i}");
     }
 
     $page = audit_recent(test_pdo(), 1, 1);

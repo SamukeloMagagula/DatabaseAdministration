@@ -10,15 +10,10 @@ const DB_PORT = '3306';
 const DB_USER = 'dbwebui_svc';
 const DB_PASS = 'changeme';
 
-/**
- * The shared connection deliberately has NO default database.
- *
- * This app's SQL console lets an editor or viewer run a statement of their own
- * choosing over this same connection. If it defaulted to this app's own
- * schema, an *unqualified* `UPDATE app_users …` would silently land on it and
- * hand out admin. Every query this app makes against its own tables must
- * therefore name the schema explicitly — see app_table() below.
- */
+// No default database: the SQL console runs visitor-chosen statements over
+// this same connection, and an unqualified one must never land on this app's
+// own tables by accident. Every query against them names the schema
+// explicitly — see app_table() below.
 function connect(): PDO
 {
     $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';charset=utf8mb4';

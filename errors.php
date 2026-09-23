@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/view.php';
 
-/**
- * Every page requires this before it requires CONFIG_PATH or touches the
- * database, so that a missing config or a failed MariaDB connection — whose
- * exception carries the DB password in its stack frame arguments — is logged
- * rather than rendered to the browser. The error views need no config.
- */
+// Required before CONFIG_PATH or the database, so a failed connection
+// (whose exception carries the DB password in its stack frame) is logged
+// rather than rendered to the browser.
 function install_error_handler(): void
 {
     set_exception_handler(function (Throwable $e): void {

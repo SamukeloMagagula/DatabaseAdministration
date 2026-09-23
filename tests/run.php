@@ -47,7 +47,8 @@ require_once __DIR__ . '/../view.php';
 require_once __DIR__ . '/../db_browser.php';
 require_once __DIR__ . '/../grid.php';
 require_once __DIR__ . '/../sql_console.php';
-require_once __DIR__ . '/../users.php';
+require_once __DIR__ . '/../system_auth.php';
+require_once __DIR__ . '/../export.php';
 require_once __DIR__ . '/../ratelimit.php';
 
 /** Shared PDO connection for tests that need the database. */

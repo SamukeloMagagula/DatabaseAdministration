@@ -89,7 +89,7 @@ test('filters work on columns whose names are not valid placeholder tokens', fun
 test('insert_row writes the row and an audit entry', function (): void {
     setup_grid_fixture();
     test_pdo()->exec('TRUNCATE TABLE ' . app_table('audit_log'));
-    insert_row(test_pdo(), 'wbtest_fixture', 'widgets', ['name' => 'nail', 'quantity' => '5'], 1, 'alice');
+    insert_row(test_pdo(), 'wbtest_fixture', 'widgets', ['name' => 'nail', 'quantity' => '5'], 'alice');
 
     $row = find_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 2);
     same('nail', $row['name']);
@@ -101,7 +101,7 @@ test('insert_row writes the row and an audit entry', function (): void {
 
 test('insert_row ignores unknown columns instead of erroring', function (): void {
     setup_grid_fixture();
-    insert_row(test_pdo(), 'wbtest_fixture', 'widgets', ['name' => 'nail', 'not_a_column' => 'x'], 1, 'alice');
+    insert_row(test_pdo(), 'wbtest_fixture', 'widgets', ['name' => 'nail', 'not_a_column' => 'x'], 'alice');
 
     $row = find_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 2);
     same('nail', $row['name']);
@@ -111,7 +111,7 @@ test('insert_row ignores unknown columns instead of erroring', function (): void
 test('update_row changes fields and logs', function (): void {
     setup_grid_fixture();
     test_pdo()->exec('TRUNCATE TABLE ' . app_table('audit_log'));
-    update_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1, ['quantity' => '99'], 1, 'alice');
+    update_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1, ['quantity' => '99'], 'alice');
 
     $row = find_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1);
     same('99', (string) $row['quantity']);
@@ -123,7 +123,7 @@ test('update_row changes fields and logs', function (): void {
 
 test('update_row cannot change the primary key', function (): void {
     setup_grid_fixture();
-    update_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1, ['id' => '999', 'quantity' => '1'], 1, 'alice');
+    update_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1, ['id' => '999', 'quantity' => '1'], 'alice');
 
     check(find_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 999) === null, 'id 999 should not exist');
     check(find_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1) !== null, 'id 1 should still exist');
@@ -133,7 +133,7 @@ test('update_row cannot change the primary key', function (): void {
 test('delete_row removes the row and logs', function (): void {
     setup_grid_fixture();
     test_pdo()->exec('TRUNCATE TABLE ' . app_table('audit_log'));
-    delete_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1, 1, 'alice');
+    delete_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1, 'alice');
 
     check(find_row(test_pdo(), 'wbtest_fixture', 'widgets', 'id', 1) === null, 'row should be gone');
 
@@ -152,10 +152,10 @@ test('insert and update both work on columns whose names are not valid placehold
         )'
     );
 
-    insert_row(test_pdo(), 'wbtest_fixture', 'odd', ['order-date' => '2026-01-01', 'first name' => 'ada'], 1, 'alice');
+    insert_row(test_pdo(), 'wbtest_fixture', 'odd', ['order-date' => '2026-01-01', 'first name' => 'ada'], 'alice');
     same('ada', find_row(test_pdo(), 'wbtest_fixture', 'odd', 'id', 1)['first name']);
 
-    update_row(test_pdo(), 'wbtest_fixture', 'odd', 'id', 1, ['first name' => 'bob'], 1, 'alice');
+    update_row(test_pdo(), 'wbtest_fixture', 'odd', 'id', 1, ['first name' => 'bob'], 'alice');
     same('bob', find_row(test_pdo(), 'wbtest_fixture', 'odd', 'id', 1)['first name']);
     teardown_grid_fixture();
 });

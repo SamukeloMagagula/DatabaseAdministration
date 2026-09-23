@@ -14,6 +14,7 @@ require_once __DIR__ . '/csrf.php';
 require_once __DIR__ . '/roles.php';
 require_once __DIR__ . '/db_browser.php';
 require_once __DIR__ . '/grid.php';
+require_once __DIR__ . '/export.php';
 
 require_login();
 if (!is_readable(CONFIG_PATH)) {
@@ -76,6 +77,35 @@ if ($method === 'GET' && $view === 'edit') {
     exit;
 }
 
+$sortColumn = $_GET['sort'] ?? null;
+$sortColumn = is_string($sortColumn) ? $sortColumn : null;
+$sortDir = $_GET['dir'] ?? 'ASC';
+$sortDir = is_string($sortDir) ? $sortDir : 'ASC';
+$rawFilters = $_GET['filter'] ?? [];
+$rawFilters = is_array($rawFilters) ? $rawFilters : [];
+
+if ($method === 'GET' && $view === 'export_csv') {
+    $columns = array_column(table_columns($pdo, $db, $table), 'COLUMN_NAME');
+    $filters = array_filter(array_intersect_key($rawFilters, array_flip($columns)), fn($v) => is_string($v));
+    $rows = all_rows($pdo, $db, $table, $sortColumn, $sortDir, $filters);
+    audit_record($pdo, $user['username'], 'EXPORT_CSV', $db, $table, count($rows) . ' rows');
+    stream_csv("{$table}.csv", $columns, $rows);
+    exit;
+}
+
+if ($method === 'GET' && $view === 'print') {
+    $columns = table_columns($pdo, $db, $table);
+    $validColumns = array_column($columns, 'COLUMN_NAME');
+    $filters = array_filter(array_intersect_key($rawFilters, array_flip($validColumns)), fn($v) => is_string($v));
+    echo render('table_print', [
+        'db' => $db,
+        'table' => $table,
+        'columns' => $columns,
+        'rows' => all_rows($pdo, $db, $table, $sortColumn, $sortDir, $filters),
+    ], null);
+    exit;
+}
+
 if ($method === 'POST') {
     require_role(ROLE_EDITOR, ROLE_ADMIN);
     if (!csrf_valid($_POST['csrf_token'] ?? null)) {
@@ -88,7 +118,7 @@ if ($method === 'POST') {
     $redirect = fn() => header('Location: /table.php?db=' . rawurlencode($db) . '&table=' . rawurlencode($table));
 
     if ($action === 'insert') {
-        insert_row($pdo, $db, $table, $_POST['fields'] ?? [], $user['id'], $user['username']);
+        insert_row($pdo, $db, $table, $_POST['fields'] ?? [], $user['username']);
         $redirect();
         exit;
     }
@@ -102,13 +132,13 @@ if ($method === 'POST') {
     $pk = (string) ($_POST['pk'] ?? '');
 
     if ($action === 'update') {
-        update_row($pdo, $db, $table, $pkColumn, $pk, $_POST['fields'] ?? [], $user['id'], $user['username']);
+        update_row($pdo, $db, $table, $pkColumn, $pk, $_POST['fields'] ?? [], $user['username']);
         $redirect();
         exit;
     }
 
     if ($action === 'delete') {
-        delete_row($pdo, $db, $table, $pkColumn, $pk, $user['id'], $user['username']);
+        delete_row($pdo, $db, $table, $pkColumn, $pk, $user['username']);
         $redirect();
         exit;
     }
@@ -118,21 +148,11 @@ if ($method === 'POST') {
     exit;
 }
 
-// GET with no ?view= — the grid itself.
+// GET with no view — the grid itself.
 $columns = table_columns($pdo, $db, $table);
 $validColumns = array_column($columns, 'COLUMN_NAME');
-
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $pageSize = (int) ($_GET['page_size'] ?? GRID_PAGE_SIZE_DEFAULT);
-
-$sortColumn = $_GET['sort'] ?? null;
-$sortColumn = is_string($sortColumn) ? $sortColumn : null;
-
-$sortDir = $_GET['dir'] ?? 'ASC';
-$sortDir = is_string($sortDir) ? $sortDir : 'ASC';
-
-$rawFilters = $_GET['filter'] ?? [];
-$rawFilters = is_array($rawFilters) ? $rawFilters : [];
 $filters = array_filter(array_intersect_key($rawFilters, array_flip($validColumns)), fn($v) => is_string($v));
 
 echo render('table_data', [
