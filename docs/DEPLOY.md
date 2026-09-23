@@ -22,10 +22,12 @@ already has MariaDB installed, with the app running on the same box.
     SQL
 
 The service account needs full rights on `dbwebui_app` to maintain the app's own
-tables, but that schema is never reachable through the UI: the table browser
-rejects it like a nonexistent database, the shared PDO connection has no default
-database (so an unqualified console statement cannot land on it), and non-admins
-cannot name it explicitly in the SQL console.
+tables, and the app keeps that schema out of the UI: the table browser rejects it
+like a nonexistent database, the shared PDO connection has no default database
+(so an unqualified console statement cannot land on it), and the SQL console
+blocks the common ways a non-admin could name it explicitly. That console check is
+a heuristic mitigation rather than a guarantee — the fully robust fix is a
+separate, more restricted database account for user-supplied SQL.
 
 ## 3. Deploy the application code
 
@@ -46,11 +48,18 @@ every login silently bounces back to `/login`. The matching
     sudo chown dbwebui:dbwebui /var/lib/dbwebui/session
     sudo chmod 700 /var/lib/dbwebui/session
 
-SELinux is enforcing by default on a fresh RHEL-family box, so relabel the new
-directory with `sudo restorecon -R /var/lib/dbwebui` (and `-R /var/www/dbwebui`
-if you copied the code in rather than cloning it in place). If you configure
-`DB_HOST` as a TCP host instead of the local socket, also run
-`sudo setsebool -P httpd_can_network_connect_db 1`.
+SELinux is enforcing by default on a fresh RHEL-family box, and PHP-FPM runs in
+the `httpd_t` domain, which cannot write the `var_lib_t` type a new directory
+under `/var/lib` inherits. `restorecon` on its own only reapplies the type
+already recorded for the path, so record a writable type first and then relabel
+(`semanage` ships in `policycoreutils-python-utils`):
+
+    sudo semanage fcontext -a -t httpd_var_run_t '/var/lib/dbwebui(/.*)?'
+    sudo restorecon -R /var/lib/dbwebui
+
+Also run `sudo restorecon -R /var/www/dbwebui` if you copied the code in rather
+than cloning it in place. If you configure `DB_HOST` as a TCP host instead of the
+local socket, also run `sudo setsebool -P httpd_can_network_connect_db 1`.
 
 ## 4. Configure the app
 

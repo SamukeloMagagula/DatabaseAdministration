@@ -161,6 +161,34 @@ final class SqlConsoleTest extends TestCase
         $this->assertSame('SQL_REJECTED', $entries[0]['action_type']);
     }
 
+    public function test_non_admin_cannot_hide_the_app_schema_behind_a_comment(): void
+    {
+        $console = new SqlConsoleController();
+        $appSchema = Database::appSchemaName();
+
+        // MariaDB's lexer treats a comment in this position exactly like
+        // whitespace, so both variants still reference the app's own table.
+        $block = $console->runStatement(
+            "UPDATE {$appSchema}/**/.app_users SET role = 'admin' WHERE username = 'ed'",
+            Roles::EDITOR,
+            1,
+            'ed'
+        );
+
+        $this->assertFalse($block['ok']);
+        $this->assertStringContainsString('restricted schema', $block['error']);
+
+        $line = $console->runStatement(
+            "UPDATE {$appSchema} -- x\n.app_users SET role = 'admin' WHERE username = 'ed'",
+            Roles::EDITOR,
+            1,
+            'ed'
+        );
+
+        $this->assertFalse($line['ok']);
+        $this->assertStringContainsString('restricted schema', $line['error']);
+    }
+
     public function test_unqualified_statement_cannot_reach_the_app_schema(): void
     {
         $console = new SqlConsoleController();

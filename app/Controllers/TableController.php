@@ -396,17 +396,25 @@ final class TableController
 
     protected function assertValidDatabase(string $db): void
     {
-        // The app's own schema (app_users/audit_log/login_attempts) is never
-        // browsable or editable through the grid — otherwise an editor could
-        // rewrite their own role and a viewer could read every password hash.
-        // Treated exactly like a nonexistent schema so callers need no changes.
-        if ($db === Database::appSchemaName()) {
+        // Resolve the canonical schema name first. This lookup matches under the
+        // server's own collation (case-insensitive, trailing-space-insensitive),
+        // exactly like every information_schema lookup that follows, so it
+        // normalizes whatever casing or padding the caller supplied.
+        $stmt = $this->pdo->prepare('SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = :db');
+        $stmt->execute(['db' => $db]);
+        $canonical = $stmt->fetchColumn();
+        if ($canonical === false) {
             throw new InvalidArgumentException('Unknown database');
         }
 
-        $stmt = $this->pdo->prepare('SELECT 1 FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = :db');
-        $stmt->execute(['db' => $db]);
-        if (!$stmt->fetchColumn()) {
+        // The app's own schema (app_users/audit_log/login_attempts) is never
+        // browsable or editable through the grid — otherwise an editor could
+        // rewrite their own role and a viewer could read every password hash.
+        // Compared against the canonical value case-insensitively, because a
+        // byte-exact comparison on the caller-supplied $db lets `DBWEBUI_APP`
+        // skip the check while still resolving against information_schema.
+        // Treated exactly like a nonexistent schema so callers need no changes.
+        if (strcasecmp(trim((string) $canonical), Database::appSchemaName()) === 0) {
             throw new InvalidArgumentException('Unknown database');
         }
     }

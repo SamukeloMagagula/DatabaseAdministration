@@ -83,7 +83,17 @@ final class SqlConsoleController
         // SqlStatementClassifier, it is a deliberate heuristic, not a parser.
         if ($role !== Roles::ADMIN) {
             $appSchema = preg_quote(Database::appSchemaName(), '/');
-            if (preg_match('/`?' . $appSchema . '`?\s*\./i', $sql)) {
+            // The left lookbehind sits *after* the optional backtick so that a
+            // shorter schema name cannot match as a substring of a longer
+            // identifier (`myapp.t` when the app schema is `app`), while
+            // `UPDATE`appschema`.t` — legal MariaDB, no space needed after a
+            // keyword before a backtick — is still caught.
+            $pattern = '/`?(?<![A-Za-z0-9_])' . $appSchema . '`?\s*\./i';
+            // Matched against the raw text *and* a comment-stripped copy: the
+            // stripped copy catches comment-as-whitespace smuggling, the raw
+            // text keeps a comment marker inside a string literal from hiding a
+            // later reference from the stripper. The executed $sql is untouched.
+            if (preg_match($pattern, $sql) || preg_match($pattern, $this->stripCommentsForSchemaCheck($sql))) {
                 $this->auditLog->record($userId, $username, 'SQL_REJECTED', null, null, $sql);
                 return ['ok' => false, 'error' => 'This statement references a restricted schema.'];
             }
@@ -104,5 +114,21 @@ final class SqlConsoleController
             $this->auditLog->record($userId, $username, 'SQL_ERROR', null, null, $sql . ' -- ERROR: ' . $e->getMessage());
             return ['ok' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Comment-stripped copy of the statement, for the app-schema check only.
+     *
+     * MariaDB's lexer treats a comment between an identifier and the following
+     * `.` exactly like whitespace, so a block or line comment wedged into that
+     * gap still yields a reference to the app schema. This returns a working
+     * copy for that detection pass; the statement sent to the server is never
+     * rewritten.
+     */
+    private function stripCommentsForSchemaCheck(string $sql): string
+    {
+        $stripped = preg_replace('#/\*.*?\*/#s', ' ', $sql) ?? $sql;
+        $stripped = preg_replace('/--.*$/m', ' ', $stripped) ?? $stripped;
+        return preg_replace('/#.*$/m', ' ', $stripped) ?? $stripped;
     }
 }
