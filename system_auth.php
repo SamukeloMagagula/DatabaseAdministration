@@ -11,12 +11,21 @@ require_once __DIR__ . '/roles.php';
 const ROLE_ADMIN_GROUP = 'dbwebui-admin';
 const ROLE_EDITOR_GROUP = 'dbwebui-editor';
 
+// Must match the file created at /etc/pam.d/dbwebui (see docs/SETUP.md step
+// 3). Without this, pam_auth() checks against whatever service its own
+// build defaults to instead — which on a stock `pecl install pam` build
+// falls through to /etc/pam.d/other, denying every login regardless of
+// password. Passed by name rather than position (this build's pam_auth()
+// also takes $status and $checkacctmgmt before it) so this doesn't depend
+// on knowing what those default to.
+const PAM_SERVICE_NAME = 'dbwebui';
+
 function pam_authenticate(string $username, string $password): bool
 {
     if (!function_exists('pam_auth')) {
         throw new RuntimeException('The PAM PHP extension (PECL pam) is not installed.');
     }
-    return pam_auth($username, $password);
+    return pam_auth($username, $password, servicename: PAM_SERVICE_NAME);
 }
 
 /** Group names $username belongs to. */
