@@ -59,39 +59,50 @@ if (!csrf_valid($_POST['csrf_token'] ?? null)) {
     bounce('Your session expired — please try again.');
 }
 
-$pdo = connect();
+// This file has no exception handler of its own (unlike every other page,
+// which goes through bootstrap.php's install_error_handler()), so without
+// this, anything below — a broken DB connection, a missing schema, the PAM
+// or POSIX extension not being installed — would surface as a bare 500 with
+// no clue what actually failed. Logged in full; shown to the visitor only
+// as much as helps them retry, since this runs before any role is known.
+try {
+    $pdo = connect();
 
-if ($action === 'logout') {
-    $_SESSION = [];
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_destroy();
-    }
-    header('Location: ' . url('/index.php'));
-    exit;
-}
-
-if ($action === 'login') {
-    $username = (string) ($_POST['username'] ?? '');
-    $password = (string) ($_POST['password'] ?? '');
-    $ip = client_ip();
-
-    if (login_locked_out($pdo, $username) || login_locked_out($pdo, 'ip:' . $ip)) {
-        audit_record($pdo, $username, 'LOGIN_LOCKOUT', null, null, 'too many attempts');
-        bounce('Too many failed attempts. Try again in a few minutes.');
+    if ($action === 'logout') {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
+        header('Location: ' . url('/index.php'));
+        exit;
     }
 
-    $valid = $username !== '' && $password !== '' && pam_authenticate($username, $password);
-    record_login_attempt($pdo, $username, $valid);
-    record_login_attempt($pdo, 'ip:' . $ip, $valid);
+    if ($action === 'login') {
+        $username = (string) ($_POST['username'] ?? '');
+        $password = (string) ($_POST['password'] ?? '');
+        $ip = client_ip();
 
-    if (!$valid) {
-        audit_record($pdo, $username, 'LOGIN_FAIL', null, null, 'invalid credentials');
-        bounce('Invalid username or password.');
+        if (login_locked_out($pdo, $username) || login_locked_out($pdo, 'ip:' . $ip)) {
+            audit_record($pdo, $username, 'LOGIN_LOCKOUT', null, null, 'too many attempts');
+            bounce('Too many failed attempts. Try again in a few minutes.');
+        }
+
+        $valid = $username !== '' && $password !== '' && pam_authenticate($username, $password);
+        record_login_attempt($pdo, $username, $valid);
+        record_login_attempt($pdo, 'ip:' . $ip, $valid);
+
+        if (!$valid) {
+            audit_record($pdo, $username, 'LOGIN_FAIL', null, null, 'invalid credentials');
+            bounce('Invalid username or password.');
+        }
+
+        $role = resolve_role(user_groups($username));
+        audit_record($pdo, $username, 'LOGIN_OK', null, null, "role: {$role}");
+        start_session_for($username, $role);
     }
-
-    $role = resolve_role(user_groups($username));
-    audit_record($pdo, $username, 'LOGIN_OK', null, null, "role: {$role}");
-    start_session_for($username, $role);
+} catch (Throwable $e) {
+    error_log((string) $e);
+    bounce('Server error signing in — check the PHP-FPM error log for detail.');
 }
 
 bounce('Unknown action.');
