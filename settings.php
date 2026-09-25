@@ -20,10 +20,12 @@ define('GRID_PAGE_SIZE_DEFAULT', (int) (getenv('DBADMIN_PAGE_SIZE') ?: 50));
 /** Hard ceiling on a requested page size, regardless of what the query string asks for. */
 const GRID_PAGE_SIZE_MAX = 500;
 
-/** True only when nginx has told PHP-FPM the request arrived over TLS. */
+/** True when nginx has told PHP-FPM the request arrived over TLS directly,
+ *  or a reverse proxy in front of it says so via X-Forwarded-Proto. */
 function using_https(): bool
 {
-    return !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') return true;
+    return ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
 }
 
 /** Requires CONFIG_PATH, failing with a clear message instead of a bare fatal. */

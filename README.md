@@ -35,6 +35,7 @@ Every page a browser requests directly is its own file at the repository root; t
 | `views/` | Plain PHP templates, rendered by `view.php`. |
 | `assets/` | Stylesheet, plain JS, and the static error pages, served directly rather than through `view.php`. |
 | `schema.sql` | This app's own tables. Plain SQL, no migration runner, see "Database setup" below. |
+| `docs/SETUP.md` | Full deployment guide, see "Deployment" below. |
 
 ## Requirements
 
@@ -89,6 +90,10 @@ php -S 127.0.0.1:8080
 ```
 
 Log in at `http://127.0.0.1:8080/index.php` with your local machine's own username and password.
+
+## Deployment
+
+See [`docs/SETUP.md`](docs/SETUP.md) for a full RHEL, Nginx, and PHP-FPM deployment guide, including the PAM setup, TLS, firewall configuration, environment variables, and troubleshooting.
 
 ## Security notes
 
