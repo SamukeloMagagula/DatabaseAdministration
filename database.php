@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'copy'
     }
     $newDb = trim((string) ($_POST['new_db'] ?? ''));
     copy_database($pdo, $db, $newDb, $user['username']);
-    header('Location: /database.php?db=' . rawurlencode($newDb));
+    header('Location: database.php?db=' . rawurlencode($newDb));
     exit;
 }
 

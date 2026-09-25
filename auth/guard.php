@@ -20,7 +20,10 @@ function current_user(): ?array
 function require_login(): void
 {
     if (current_user() !== null) return;
-    header('Location: /index.php');
+    // Relative, not "/index.php": this app may be deployed under a subpath
+    // alongside other tools, and an absolute path would bounce out to
+    // whatever else lives at the true server root instead of back into it.
+    header('Location: index.php');
     exit;
 }
 

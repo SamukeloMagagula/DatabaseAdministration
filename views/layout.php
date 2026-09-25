@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <title>Database Administration</title>
-<link rel="stylesheet" href="/assets/style.css">
-<script src="/assets/app.js" defer></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/app.js" defer></script>
 </head>
 <body>
 <nav class="topnav">
-    <a href="/index.php">Databases</a>
-    <a href="/sql.php">SQL Console</a>
-    <a href="/status.php">Status</a>
+    <a href="index.php">Databases</a>
+    <a href="sql.php">SQL Console</a>
+    <a href="status.php">Status</a>
     <?php if (($user['role'] ?? null) === ROLE_ADMIN): ?>
-        <a href="/audit_log.php">Audit Log</a>
+        <a href="audit_log.php">Audit Log</a>
     <?php endif; ?>
     <span class="topnav-user">
         <?= e($user['username'] ?? '') ?> (<?= e($user['role'] ?? '') ?>)
-        <form method="post" action="/auth/auth.php" class="inline-form">
+        <form method="post" action="auth/auth.php" class="inline-form">
             <input type="hidden" name="action" value="logout">
             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
             <button type="submit">Logout</button>

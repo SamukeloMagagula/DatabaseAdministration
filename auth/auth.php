@@ -32,10 +32,14 @@ require __DIR__ . '/../audit.php';
 require __DIR__ . '/../ratelimit.php';
 require __DIR__ . '/../system_auth.php';
 
+// "../index.php", not "/index.php": this file lives one directory below the
+// app root (auth/), and an absolute path would bounce out to whatever else
+// lives at the true server root if this app is deployed under a subpath.
+
 function bounce(string $error): void
 {
     $_SESSION['flash_error'] = $error;
-    header('Location: /index.php');
+    header('Location: ../index.php');
     exit;
 }
 
@@ -44,7 +48,7 @@ function start_session_for(string $username, string $role): void
     session_regenerate_id(true);
     $_SESSION['username'] = $username;
     $_SESSION['role']     = $role;
-    header('Location: /index.php');
+    header('Location: ../index.php');
     exit;
 }
 
@@ -66,7 +70,7 @@ if ($action === 'logout') {
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_destroy();
     }
-    header('Location: /index.php');
+    header('Location: ../index.php');
     exit;
 }
 

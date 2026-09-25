@@ -14,4 +14,4 @@
 <?php endforeach; ?>
 </tbody>
 </table>
-<p><a href="/table.php?db=<?= e(rawurlencode($db)) ?>&table=<?= e(rawurlencode($table)) ?>">View data</a></p>
+<p><a href="table.php?db=<?= e(rawurlencode($db)) ?>&table=<?= e(rawurlencode($table)) ?>">View data</a></p>

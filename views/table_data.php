@@ -1,11 +1,11 @@
 <?php $dbSeg = rawurlencode($db); $tableSeg = rawurlencode($table); ?>
 <h1><?= e($db) ?>.<?= e($table) ?></h1>
 <p>
-    <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=structure">View structure</a>
-    | <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=export_csv">Export CSV</a>
-    | <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=print" target="_blank">Print / Save as PDF</a>
+    <a href="table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=structure">View structure</a>
+    | <a href="table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=export_csv">Export CSV</a>
+    | <a href="table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=print" target="_blank">Print / Save as PDF</a>
     <?php if (in_array($user['role'], [ROLE_EDITOR, ROLE_ADMIN], true)): ?>
-        | <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=new">Insert row</a>
+        | <a href="table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=new">Insert row</a>
     <?php endif; ?>
 </p>
 
@@ -35,8 +35,8 @@
 <?php endforeach; ?>
 <td>
 <?php if ($primaryKey !== null && in_array($user['role'], [ROLE_EDITOR, ROLE_ADMIN], true)): $pkSeg = rawurlencode((string) $row[$primaryKey]); ?>
-    <a href="/table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=edit&pk=<?= e($pkSeg) ?>">Edit</a>
-    <form method="post" action="/table.php" class="inline-form" data-confirm="Delete this row?">
+    <a href="table.php?db=<?= e($dbSeg) ?>&table=<?= e($tableSeg) ?>&view=edit&pk=<?= e($pkSeg) ?>">Edit</a>
+    <form method="post" action="table.php" class="inline-form" data-confirm="Delete this row?">
         <input type="hidden" name="db" value="<?= e($db) ?>">
         <input type="hidden" name="table" value="<?= e($table) ?>">
         <input type="hidden" name="action" value="delete">
