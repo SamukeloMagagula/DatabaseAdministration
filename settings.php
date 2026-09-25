@@ -36,3 +36,62 @@ function load_app_config(): void
     }
     require CONFIG_PATH;
 }
+
+/**
+ * The URL path this app is deployed under: "" at the domain root, or
+ * something like "/DatabaseAdministration" when it shares a server with
+ * other tools. A relative link would only work if the browser's address bar
+ * already has a trailing slash after the app's directory — a bare directory
+ * URL with no trailing slash (nginx serving index.php for it internally,
+ * with no redirect to add the slash) leaves the browser resolving relative
+ * links against the wrong depth entirely, straight out to whatever else is
+ * hosted at the true server root. Computed from where the currently running
+ * script sits on disk relative to this file (settings.php, always at the
+ * app root) versus its own URL, so it comes out right whether that script
+ * is a root-level page or something under auth/ — not hardcoded to either.
+ * Override with DBADMIN_BASE_PATH if a reverse proxy rewrites the path in a
+ * way this can't see.
+ */
+function base_path(): string
+{
+    static $path = null;
+    if ($path !== null) return $path;
+
+    $override = getenv('DBADMIN_BASE_PATH');
+    if ($override !== false) {
+        return $path = ($override === '' ? '' : '/' . trim($override, '/'));
+    }
+
+    $appRoot = str_replace('\\', '/', (string) realpath(__DIR__));
+    $scriptFile = str_replace('\\', '/', (string) realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')));
+    $scriptUrl = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+
+    // How many directories the running script sits below the app root (0 for
+    // a root-level page, 1 for something under auth/, etc.) — falls back to
+    // 0 if the two paths don't share the expected prefix at all (e.g. a
+    // symlinked deployment), which just reproduces the old root-only
+    // behavior rather than computing something nonsensical.
+    $depth = str_starts_with($scriptFile, $appRoot)
+        ? substr_count(ltrim(substr($scriptFile, strlen($appRoot)), '/'), '/')
+        : 0;
+
+    $segments = explode('/', trim($scriptUrl, '/'));
+    $segments = array_slice($segments, 0, max(0, count($segments) - $depth - 1));
+
+    return $path = $segments ? '/' . implode('/', $segments) : '';
+}
+
+/** Prefixes $absolutePath (starting with "/") with base_path() — use this for
+ *  every link, form action, asset reference, and redirect in the app. */
+function url(string $absolutePath): string
+{
+    return base_path() . $absolutePath;
+}
+
+/** Serves one of assets/errors/*.html, substituting {{BASE}} for base_path()
+ *  — these are plain static files, so they can't call url() themselves. */
+function send_static_error_page(string $file): void
+{
+    $html = (string) file_get_contents(__DIR__ . '/assets/errors/' . $file);
+    echo str_replace('{{BASE}}', base_path(), $html);
+}

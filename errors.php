@@ -14,11 +14,11 @@ function install_error_handler(): void
         header('Content-Type: text/html; charset=utf-8');
         if ($e instanceof InvalidArgumentException) {
             http_response_code(404);
-            readfile(__DIR__ . '/assets/errors/404.html');
+            send_static_error_page('404.html');
             return;
         }
 
         http_response_code(500);
-        readfile(__DIR__ . '/assets/errors/500.html');
+        send_static_error_page('500.html');
     });
 }

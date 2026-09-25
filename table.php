@@ -105,7 +105,7 @@ if ($method === 'POST') {
     }
 
     $action = (string) ($_POST['action'] ?? '');
-    $redirect = fn() => header('Location: table.php?db=' . rawurlencode($db) . '&table=' . rawurlencode($table));
+    $redirect = fn() => header('Location: ' . url('/table.php?db=' . rawurlencode($db) . '&table=' . rawurlencode($table)));
 
     if ($action === 'insert') {
         insert_row($pdo, $db, $table, $_POST['fields'] ?? [], $user['username']);

@@ -1,5 +1,5 @@
 <h1>SQL Console</h1>
-<form method="post" action="sql.php">
+<form method="post" action="<?= e(url('/sql.php')) ?>">
     <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
     <textarea name="sql" rows="6" cols="80"><?= e($sql) ?></textarea><br>
     <button type="submit">Run</button>

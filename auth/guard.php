@@ -20,10 +20,7 @@ function current_user(): ?array
 function require_login(): void
 {
     if (current_user() !== null) return;
-    // Relative, not "/index.php": this app may be deployed under a subpath
-    // alongside other tools, and an absolute path would bounce out to
-    // whatever else lives at the true server root instead of back into it.
-    header('Location: index.php');
+    header('Location: ' . url('/index.php'));
     exit;
 }
 
@@ -35,6 +32,6 @@ function require_role(string ...$roles): void
 
     http_response_code(403);
     header('Content-Type: text/html; charset=utf-8');
-    readfile(__DIR__ . '/../assets/errors/403.html');
+    send_static_error_page('403.html');
     exit;
 }
